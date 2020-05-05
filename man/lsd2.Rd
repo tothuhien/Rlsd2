@@ -85,9 +85,9 @@ lsd2(
 
 \item{m}{the number of sampling dated nodes to calculate median rates, used in estimating outliers nodes and minblen. By default is 10.}
 
-\item{ZscoreOutlier}{if specify then lsd2 will esimate and remove outliers nodes before dating. A normal value of ZscoreOutlier could be 3, but you can adjust it bigger/smaller depending if you want to have less/more outliers. Note that for now, some functionalities could not be combined with outliers estimation, for example estimating multiple rates, imprecise date constraints."}
+\item{ZscoreOutlier}{if specify then lsd2 will esimate and remove outliers nodes before dating. A normal value of ZscoreOutlier could be 3, but you can adjust it bigger/smaller depending if you want to have less/more outliers. Note that for now, some functionalities could not be combined with outliers estimation, for example estimating multiple rates, imprecise date constraints.}
 
-\item{nbData}{the number of tree(s) in the \code{inputTree} that are going to process}
+\item{nbData}{the number of tree(s) in the `inputTree` that are going to process}
 }
 \value{
 a list that includes: estimated rate(s), root date(s), estimated tree(s), and the output file names.

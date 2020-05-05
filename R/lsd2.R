@@ -26,8 +26,8 @@
 #' @param roundTime the factor to round the time of minblen and minblenL. By default, factor 365 rounds the minblen to number of days.
 #' @param outDateFormat the format of the output date, 1 for real, and 2 for year-month-day. By default, the output date format is based on the input date format.
 #' @param m the number of sampling dated nodes to calculate median rates, used in estimating outliers nodes and minblen. By default is 10.
-#' @param ZscoreOutlier if specify then lsd2 will esimate and remove outliers nodes before dating. A normal value of ZscoreOutlier could be 3, but you can adjust it bigger/smaller depending if you want to have less/more outliers. Note that for now, some functionalities could not be combined with outliers estimation, for example estimating multiple rates, imprecise date constraints."
-#' @param nbData the number of tree(s) in the \code{inputTree} that are going to process
+#' @param ZscoreOutlier if specify then lsd2 will esimate and remove outliers nodes before dating. A normal value of ZscoreOutlier could be 3, but you can adjust it bigger/smaller depending if you want to have less/more outliers. Note that for now, some functionalities could not be combined with outliers estimation, for example estimating multiple rates, imprecise date constraints.
+#' @param nbData the number of tree(s) in the `inputTree` that are going to process
 #' @examples
 #' result <- lsd2(inputTree="data/D750_11_10_rooted.tree", inputDate="data/D750_11_10.date", outFile = "data/test_lsd2", seqLen=1000)
 #' ## or
@@ -41,12 +41,13 @@
 #' @return a list that includes: estimated rate(s), root date(s), estimated tree(s), and the output file names.
 #' @export
 #'
+#'
 lsd2 <- function(inputTree, inputDate = NA, seqLen, partitionFile = NA, outFile = NA, outGroup = NA, givenRate = NA,
                  constraint = TRUE, variance = 1, confidenceIntervalSampling = NA,
                  minRate = 1e-10, estimateRoot = NA, b = NA, q = 0.2,
                  mrca=NA, leaves =NA, verbose = FALSE, keepOutgroup = FALSE,
                  nullblen = NA, support =  NA,  minblen = NA, minblenL = NA,
-                 roundTime = NA, outDateFormat = NA,  m = 10,ZscoreOutlier = NA, nbData = 1){
+                 roundTime = NA, outDateFormat = NA,  m = 10, ZscoreOutlier = NA, nbData = 1){
   if ((typeof(inputTree) == "character") && file.exists(inputTree)){
     inputTree = normalizePath(inputTree)
     if (is.na(outFile)) outFile = paste0(inputTree,".result")
@@ -61,41 +62,49 @@ lsd2 <- function(inputTree, inputDate = NA, seqLen, partitionFile = NA, outFile 
       return(NULL)
     }
   }
-  if (!is.na(inputDate) && (typeof(inputDate) == "character") && file.exists(inputDate)){
-    inputDate = normalizePath(inputDate)
-  } else {
-    d = tempfile()
-    cat(length(inputDate),"\n",file = d)
-    for (i in 1:length(inputDate)){
+  if (!is.na(inputDate)){
+    if ((typeof(inputDate) == "character") && file.exists(inputDate)){
+      inputDate = normalizePath(inputDate)
+    } else {
+      d = tempfile()
+      cat(length(inputDate),"\n",file = d)
+      for (i in 1:length(inputDate)){
         cat(names(inputDate)[i],inputDate[i],"\n",append = T,file = d)
-    }
-    inputDate = d
-  }
-  if (!is.na(outGroup) && (typeof(outGroup) == "character") && file.exists(outGroup)){
-    outGroup = normalizePath(outGroup)
-  } else {
-    outgroup = tempfile()
-    if (!is.na(outGroup)){
-      cat(length(outGroup),"\n",file = outGroup)
-      for (i in 1:length(outGroup)){
-        cat(outGroup[i],"\n",append = T,file = outgroup)
       }
-      outGroup = outgroup
+      inputDate = d
     }
   }
-  if (!is.na(givenRate)  && (typeof(givenRate) == "character") && file.exists(givenRate)){
-    givenRate = normalizePath(givenRate)
-  } else {
-    rateFile = tempfile()
-    if (!is.na(givenRate)  && typeof(givenRate)=="double"){
-      for (i in 1:length(givenRate)){
-        cat(givenRate[i],"\n",append = T,file = rateFile)
+  if (!is.na(outGroup)){
+    if ((typeof(outGroup) == "character") && file.exists(outGroup)){
+      outGroup = normalizePath(outGroup)
+    } else {
+      outgroup = tempfile()
+      if (!is.na(outGroup)){
+        cat(length(outGroup),"\n",file = outGroup)
+        for (i in 1:length(outGroup)){
+          cat(outGroup[i],"\n",append = T,file = outgroup)
+        }
+        outGroup = outgroup
       }
-      givenRate = rateFile
     }
   }
-  if (!is.na(partitionFile)  && (typeof(partitionFile) == "character") && file.exists(partitionFile)){
-    partitionFile = normalizePath(partitionFile)
+  if (!is.na(givenRate)){
+      if ((typeof(givenRate) == "character") && file.exists(givenRate)){
+        givenRate = normalizePath(givenRate)
+      } else {
+        rateFile = tempfile()
+        if (!is.na(givenRate)  && typeof(givenRate)=="double"){
+          for (i in 1:length(givenRate)){
+            cat(givenRate[i],"\n",append = T,file = rateFile)
+          }
+          givenRate = rateFile
+        }
+      }
+  }
+  if (!is.na(partitionFile)){
+    if ((typeof(partitionFile) == "character") && file.exists(partitionFile)){
+      partitionFile = normalizePath(partitionFile)
+    }
   }
   if (!is.na(confidenceIntervalSampling)) confidenceIntervalSampling=as.integer(confidenceIntervalSampling)
   if (!is.na(outDateFormat)) outDateFormat=as.integer(outDateFormat)
@@ -104,12 +113,15 @@ lsd2 <- function(inputTree, inputDate = NA, seqLen, partitionFile = NA, outFile 
     return(NULL)
   }
   if (!is.na(m)) m=as.integer(m)
-  nbData=as.integer(nbData)
+  if (!is.na(nbData)) nbData=as.integer(nbData)
+
   res = .Call("Rlsd2",inputTree,  inputDate,  partitionFile,  outFile,  outGroup,  givenRate,
         seqLen,  constraint ,  variance ,  confidenceIntervalSampling ,  minRate ,
         estimateRoot ,  b ,  q ,  mrca ,  leaves ,  verbose ,  keepOutgroup ,
         nullblen ,  support ,   minblen ,  minblenL ,
         roundTime,  outDateFormat , m , ZscoreOutlier, nbData)
+
+
   if (!is.null(res)){
     names(res) <- c("rate","tMRCA")
     outTree <- read.tree(paste0(outFile,".nwk"))
@@ -120,4 +132,3 @@ lsd2 <- function(inputTree, inputDate = NA, seqLen, partitionFile = NA, outFile 
   }
   return (res)
 }
-#r = lsd2(inputTree="~/lsd2_benchmark/Relaxed/D750_11_10_rooted.tree", inputDate="~/lsd2_benchmark/dates_lsd/D750_11_10_0_0.date", seqLen=1000)

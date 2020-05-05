@@ -455,6 +455,9 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     for (int i = 11; i<argc;i++){
         argv[i] = options[i-11];
     }
+    /*for (int i=0;i<options.size();i++){
+      cout<<options[i]<<endl;
+    }*/
     Pr* opt = getOptions( argc, argv);
     if (opt==NULL){
         return R_NilValue;
@@ -479,4 +482,4 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
         return R_NilValue;
     }
 }
-//R CMD SHLIB confidence_interval.c dating.c estimate_root.c options.c outliers.c readData.c utils.c lsd.c -o lsd2.so
+//R CMD SHLIB confidence_interval.cpp dating.cpp estimate_root.cpp options.cpp outliers.cpp readData.cpp utils.cpp lsd.cpp -o Rlsd2.so
