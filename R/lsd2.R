@@ -37,7 +37,7 @@
 #' names(date) <- dateTbl[,1]
 #' result <- lsd2(inputTree=tree, inputDate=date, outFile = "data/test_lsd2", seqLen=1000)
 #' @importFrom ape read.tree write.tree
-#'
+#' @importFrom treeio read.beast
 #' @return a list that includes: estimated rate(s), root date(s), estimated tree(s), and the output file names.
 #' @export
 #'
@@ -124,11 +124,10 @@ lsd2 <- function(inputTree, inputDate = NA, seqLen, partitionFile = NA, outFile 
 
   if (!is.null(res)){
     names(res) <- c("rate","tMRCA")
-    outTree <- read.tree(paste0(outFile,".nwk"))
-    res[["outTree"]] = outTree
-    res[["outResultFile"]] = outFile
-    res[["nexusTreeFile"]] = paste0(outFile,".nexus")
-    res[["dateNexusTreeFile"]] = paste0(outFile,".date.nexus")
+    res[["newickTree"]] = read.tree(paste0(outFile,".nwk"))
+    res[["nexusTreeFile"]] = read.beast(paste0(outFile,".nexus"))
+    res[["dateNexusTreeFile"]] = read.beast(paste0(outFile,".date.nexus"))
+    res[["outResultFiles"]] = c(outFile,paste0(outFile,".nwk"),paste0(outFile,".nexus"),paste0(outFile,".date.nexus"))
   }
   return (res)
 }

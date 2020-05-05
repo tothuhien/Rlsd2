@@ -4,7 +4,7 @@ For now, the package is only tested under Unix system.
 
 All options and file format used here are the same as the original lsd2, but this R package also accepts some R-object inputs. Users could refer to that the original lsd2 for better documentation.
 
-To install it: 
+To install it (some packages are required: devtools, ape, treeio): 
 
     devtools::install_github("tothuhien/Rlsd2")
 
