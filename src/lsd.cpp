@@ -334,15 +334,15 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     double Q = asReal(q);
     if (asReal(q)>=0){
         options.push_back((char*)"-q");
-        s = new char[size_t(Q)];
+        s = new char[size_t(abs(Q))+1];
         sprintf(s, "%e", Q);
         options.push_back(s);
         argc = argc+2;
     }
-    if (TYPEOF(estimate_root) == REALSXP && !ISNA(REAL(nullblen)[0])){
+    if (TYPEOF(nullblen) == REALSXP && !ISNA(REAL(nullblen)[0])){
         double NULLBLEN = asReal(nullblen);
         options.push_back((char*)"-l");
-        s = new char[size_t(NULLBLEN)];
+        s = new char[size_t(abs(NULLBLEN))+1];
         sprintf(s, "%e", NULLBLEN);
         options.push_back(s);
         argc = argc+2;
@@ -350,7 +350,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     if (TYPEOF(support) == REALSXP && !ISNA(REAL(support)[0])){
         double SUPPORT = asReal(support);
         options.push_back((char*)"-S");
-        s = new char[size_t(SUPPORT)];
+        s = new char[size_t(abs(SUPPORT))+1];
         sprintf(s, "%e", SUPPORT);
         options.push_back(s);
         argc = argc+2;
@@ -358,7 +358,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     if (TYPEOF(minblen) == REALSXP && !ISNA(REAL(minblen)[0])){
         double MINBLEN = asReal(minblen);
         options.push_back((char*)"-u");
-        s = new char[size_t(MINBLEN)];
+        s = new char[size_t(abs(MINBLEN))+1];
         sprintf(s, "%e", MINBLEN);
         options.push_back(s);
         argc = argc+2;
@@ -366,7 +366,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     if (TYPEOF(minblenL) == REALSXP && !ISNA(REAL(minblenL)[0])){
         double MINBLENL = asReal(minblenL);
         options.push_back((char*)"-U");
-        s = new char[size_t(MINBLENL)];
+        s = new char[size_t(abs(MINBLENL))+1];
         sprintf(s, "%e", MINBLENL);
         options.push_back(s);
         argc = argc+2;
@@ -374,7 +374,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     if (INTEGER(confidenceIntervalSampling)[0]!=NA_INTEGER){
         int NBS = asInteger(confidenceIntervalSampling);
         options.push_back((char*)"-f");
-        s = new char[size_t(NBS)];
+        s = new char[size_t(abs(NBS))+1];
         sprintf(s, "%d", NBS);
         options.push_back(s);
         argc = argc+2;
@@ -382,7 +382,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     if (INTEGER(outDateFormat)[0]!=NA_INTEGER){
         int D = asInteger(outDateFormat);
         options.push_back((char*)"-D");
-        s = new char[size_t(D)];
+        s = new char[size_t(abs(D))+1];
         sprintf(s, "%d", D);
         options.push_back(s);
         argc = argc+2;
@@ -390,7 +390,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     if (TYPEOF(b) == REALSXP && !ISNA(REAL(b)[0])){
         double B = asReal(b);
         options.push_back((char*)"-b");
-        s = new char[size_t(B)];
+        s = new char[size_t(abs(B))+1];
         sprintf(s, "%e", B);
         options.push_back(s);
         argc = argc+2;
@@ -398,7 +398,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     if (TYPEOF(mrca) == REALSXP && !ISNA(REAL(mrca)[0])){
         double A = asReal(mrca);
         options.push_back((char*)"-a");
-        s = new char[size_t(A)];
+        s = new char[size_t(abs(A))+1];
         sprintf(s, "%e", A);
         options.push_back(s);
         argc = argc+2;
@@ -406,7 +406,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     if (TYPEOF(leaves) == REALSXP && !ISNA(REAL(leaves)[0])){
         double Z = asReal(leaves);
         options.push_back((char*)"-z");
-        s = new char[size_t(Z)];
+        s = new char[size_t(abs(Z))+1];
         sprintf(s, "%e", Z);
         options.push_back(s);
         argc = argc+2;
@@ -414,7 +414,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     if (TYPEOF(roundTime) == REALSXP && !ISNA(REAL(roundTime)[0])){
         double ROUND_TIME = asReal(roundTime);
         options.push_back((char*)"-R");
-        s = new char[size_t(ROUND_TIME)];
+        s = new char[size_t(abs(ROUND_TIME))+1];
         sprintf(s, "%e", ROUND_TIME);
         options.push_back(s);
         argc = argc+2;
@@ -422,7 +422,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     if (TYPEOF(e) == REALSXP && !ISNA(REAL(e)[0])){
         double E = asReal(e);
         options.push_back((char*)"-e");
-        s = new char[size_t(E)];
+        s = new char[size_t(abs(E))+1];
         sprintf(s, "%e", E);
         options.push_back(s);
         argc = argc+2;
@@ -430,7 +430,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     int var = asInteger(variance);
     if (var != 0){
         options.push_back((char*)"-v");
-        s = new char[size_t(var)];
+        s = new char[size_t(abs(var))+1];
         sprintf(s, "%d", var);
         options.push_back(s);
         argc = argc+2;
@@ -441,16 +441,16 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     argv[2] = (char*)CHAR(STRING_PTR(inputTree)[0]);
     argv[3] = (char*)"-s";
     int sl = asInteger(seqLen);
-    argv[4] = new char[size_t(sl)];
+    argv[4] = new char[size_t(abs(sl))+1];
     sprintf(argv[4], "%d", sl);
     argv[5] = (char*)"-t";
-    argv[6] = new char[size_t(asReal(rhoMin))];
+    argv[6] = new char[size_t(abs(asReal(rhoMin)))+1];
     sprintf(argv[6], "%e", asReal(rhoMin));
     argv[7] = (char*)"-m";
-    argv[8] = new char[size_t(asInteger(m))];
+    argv[8] = new char[size_t(abs(asInteger(m)))+1];
     sprintf(argv[8], "%d", asInteger(m));
     argv[9] = (char*)"-n";
-    argv[10] = new char[size_t(asInteger(nbData))];
+    argv[10] = new char[size_t(abs(asInteger(nbData)))+1];
     sprintf(argv[10], "%d", asInteger(nbData));
     for (int i = 11; i<argc;i++){
         argv[i] = options[i-11];

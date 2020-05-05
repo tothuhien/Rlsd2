@@ -284,10 +284,6 @@ Pr* getCommandLine( int argc, char** argv)
                     return NULL;
                 }
                 opt->nullblen = atof(optarg);
-                if (opt->nullblen<0){
-                    myExit("Argument of option -l must be >= 0\n");
-                    return NULL;
-                }
                 lflag = true;
                 break;
             case 'R':
@@ -370,7 +366,7 @@ Pr* getCommandLine( int argc, char** argv)
     opt->treeFile1=opt->outFile+".nexus";
     opt->treeFile2=opt->outFile+".date.nexus";
     opt->treeFile3=opt->outFile+".nwk";
-    if (opt->nullblen<0){
+    if (std::isnan(opt->nullblen)){
         opt->nullblen = 0.5/opt->seqLength;
     }
 
