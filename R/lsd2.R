@@ -65,19 +65,17 @@ lsd2 <- function(inputTree, inputDate = NA, seqLen, partitionFile = NA, outFile 
     inputDate = normalizePath(inputDate)
   } else {
     d = tempfile()
-    if (length(inputDate)>1 && !any(file.exists(inputDate))){
-      cat(length(inputDate),"\n",file = d)
-      for (i in 1:length(inputDate)){
+    cat(length(inputDate),"\n",file = d)
+    for (i in 1:length(inputDate)){
         cat(names(inputDate)[i],inputDate[i],"\n",append = T,file = d)
-      }
-      inputDate = d
     }
+    inputDate = d
   }
   if (!is.na(outGroup) && (typeof(outGroup) == "character") && file.exists(outGroup)){
     outGroup = normalizePath(outGroup)
   } else {
     outgroup = tempfile()
-    if (!is.na(outGroup) && !any(file.exists(outGroup))){
+    if (!is.na(outGroup)){
       cat(length(outGroup),"\n",file = outGroup)
       for (i in 1:length(outGroup)){
         cat(outGroup[i],"\n",append = T,file = outgroup)
@@ -89,7 +87,7 @@ lsd2 <- function(inputTree, inputDate = NA, seqLen, partitionFile = NA, outFile 
     givenRate = normalizePath(givenRate)
   } else {
     rateFile = tempfile()
-    if (!is.na(givenRate) && !any(file.exists(givenRate)) && typeof(givenRate)=="double"){
+    if (!is.na(givenRate)  && typeof(givenRate)=="double"){
       for (i in 1:length(givenRate)){
         cat(givenRate[i],"\n",append = T,file = rateFile)
       }
