@@ -1,0 +1,4 @@
+importFrom(ape,read.tree)
+importFrom(ape,write.tree)
+useDynLib(Rlsd2)
+export(lsd2)

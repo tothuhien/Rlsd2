@@ -1,0 +1,11 @@
+Package: Rlsd2
+Type: Package
+Title: R-wrapper for lsd2
+Version: 1.6.6
+Author: Thu-Hien To
+Maintainer: Thu-Hien To <tothuhien@gmail.com>
+Description: An R-wrapper of lsd2 (https://github.com/tothuhien/lsd2), a phylogeny dating method using least-squares algorithms and criteria
+License: GPL-2.0
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.0
