@@ -267,8 +267,8 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
         delete[] nodes;
     }
     *(io->outResult)<<"\n*********************************************************\n";
-    *(io->outTree1)<<"End;";
-    *(io->outTree2)<<"End;";
+    *(io->outTree1)<<"End;\n";
+    *(io->outTree2)<<"End;\n";
     gr.close();
     delete io;
     return EXIT_SUCCESS;

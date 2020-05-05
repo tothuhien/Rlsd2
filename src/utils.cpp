@@ -1734,7 +1734,7 @@ string nexusIC(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double* H_m
         hmin<< H_min[i];
         hmax<< H_max[i];
         if (i>=pr->nbINodes) {
-            return nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"}][&CI_date=\""+date.str()+"("+dmin.str()+","+dmax.str()+")\"]:"+b.str();
+            return nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
         }
         else{
             string newLabel="(";
@@ -1745,11 +1745,11 @@ string nexusIC(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double* H_m
                 else newLabel+=","+l;
             }
             if (i>0) {
-                if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"}][&CI_date=\""+date.str()+"("+dmin.str()+","+dmax.str()+")\"]:"+b.str();
+                if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
                 else return newLabel+")"+nodes[i]->L+":"+b.str();
             }
             else{
-                return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"}][&CI_date=\""+date.str()+"("+dmin.str()+","+dmax.str()+")\"];\n";
+                return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}];\n";
             }
             
         }
@@ -1779,7 +1779,7 @@ string nexusICDate(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double*
         hmin<< H_min[i];
         hmax<< H_max[i];
         if (i>=pr->nbINodes) {
-            return nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"}][&CI_date=\""+date.str()+"("+dmin.str()+","+dmax.str()+")\"]:"+b.str();
+            return nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
         }
         else{
             string newLabel="(";
@@ -1790,11 +1790,11 @@ string nexusICDate(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double*
                 else newLabel+=","+l;
             }
             if (i>0) {
-                if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"}][&CI_date=\""+date.str()+"("+dmin.str()+","+dmax.str()+")\"]:"+b.str();
+                if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
                 else return newLabel+")"+nodes[i]->L+":"+b.str();
             }
             else{
-                return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"}][&CI_date=\""+date.str()+"("+dmin.str()+","+dmax.str()+")\"];\n";
+                return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}];\n";
             }
             
         }
