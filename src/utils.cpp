@@ -585,11 +585,11 @@ int getPosition(Node** nodes,string s,int n,int m,int& k){
         i++;
     }
     if (count==0) k = -1;
-    else if (count>1){
+    if (count>1){
         cerr<<"There are at least two leaves that have the same label"<<endl;
         return (EXIT_FAILURE);
     }
-    else return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
 
 bool isAncestor(Node** nodes,int i,int j){

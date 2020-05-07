@@ -273,6 +273,7 @@ int readDateFile(istream &dateFile, Pr* pr,Node** &nodes,bool& constraintConsist
         pr->warningMessage.push_back(oss.str());
     }
     if (pr->inDateFormat==2 && pr->outDateFormat==0) pr->outDateFormat=2;
+    return EXIT_SUCCESS;
 }
 
 
