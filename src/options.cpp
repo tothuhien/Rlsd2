@@ -36,7 +36,7 @@ Pr* getCommandLine( int argc, char** argv)
     uflag=false,
     vflag=false,
     validDate = true;
-    optind = 0;
+    optind = 1;
     while ( (c = getopt(argc, argv, ":i:d:D:o:s:n:g:r:v:ct:w:b:a:z:f:kje:m:p:q:u:l:U:R:S:")) != -1 )
     {
         switch (c)
