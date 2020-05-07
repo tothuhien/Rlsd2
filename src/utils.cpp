@@ -276,6 +276,61 @@ int readdouble(istream& f,string fn,double& r){
     }
 }
 
+string realToYearMonth(double year){
+    ostringstream oss;
+    double days = abs(year) - floor(abs(year));
+    int y;
+    if (year>0) {
+        y = floor(year);
+    } else {
+        y = ceil(year);
+    }
+    int d = round(365*days);
+    int m = 0;
+    if (d>=1 && d<=31){
+        m = 1;
+    }
+    if (d>=32 && d<=59){
+        m = 2;
+    }
+    if (d>=60 && d<=90){
+        m = 3;
+    }
+    if (d>=91 && d<=120){
+        m = 4;
+    }
+    if (d>=121 && d<=151){
+        m = 5;
+    }
+    if (d>=152 && d<=181){
+        m = 6;
+    }
+    if (d>=182 && d<=212){
+        m = 7;
+    }
+    if (d>=213 && d<=243){
+        m = 8;
+    }
+    if (d>=244 && d<=273){
+        m = 9;
+    }
+    if (d>=274 && d<=304){
+        m = 10;
+    }
+    if (d>=305 && d<=334){
+        m = 11;
+    }
+    if (d>=335){
+        m = 12;
+    }
+    oss<<y;
+    if (m!=0) {
+        if (m<=9) oss<<"-0"<<m;
+        else oss<<"-"<<m;
+    }
+    return oss.str();
+}
+
 string realToYearMonthDay(double year){
     ostringstream oss;
     double days = abs(year) - floor(abs(year));
@@ -388,9 +443,62 @@ int monthDayToReal(int m,int d,double& r){
     return EXIT_FAILURE;
 }
 
-int readDate(istream& f,string fn,Pr* pr,double& y){
+int monthToReal(int m,double& r){
+    return monthDayToReal(m,15,r);
+}
+
+int maxDate(int m,int & md){
+    switch (m)
+    {
+    case 1:
+        md = 31; return EXIT_SUCCESS;
+        break;
+    case 2:
+        md = 28; return EXIT_SUCCESS;
+        break;
+    case 3:
+        md = 31; return EXIT_SUCCESS;
+        break;
+    case 4:
+        md = 30; return EXIT_SUCCESS;
+        break;
+    case 5:
+        md = 31; return EXIT_SUCCESS;
+        break;
+    case 6:
+        md = 30; return EXIT_SUCCESS;
+        break;
+    case 7:
+        md = 31; return EXIT_SUCCESS;
+        break;
+    case 8:
+        md = 31; return EXIT_SUCCESS;
+        break;
+    case 9:
+        md = 30; return EXIT_SUCCESS;
+        break;
+    case 10:
+        md = 31; return EXIT_SUCCESS;
+        break;
+    case 11:
+        md = 30; return EXIT_SUCCESS;
+        break;
+    case 12:
+        md = 31; return EXIT_SUCCESS;
+        break;
+    }
+    cerr<<"Invalid month "<<m<<endl;
+    return (EXIT_FAILURE);
+}
+
+int readDate(istream& f,string fn,Pr* pr,double& y,double& month,double& day){
     int e;
+    int sign = 1;
     if (f >> y) {
+        if (y<0) {
+            sign = -1;
+            y = -y;
+        }
         char c;
         e = readChar(f,fn,c);
         if (e==EXIT_FAILURE) return e;
@@ -399,16 +507,20 @@ int readDate(istream& f,string fn,Pr* pr,double& y){
                 if (y>=9 && y<=9999) pr->inDateFormat=1;
                 else if (pr->inDateFormat!=1) pr->inDateFormat=0;
             }
+            y = y*sign;
             return EXIT_SUCCESS;
         }
         else if (c=='-' && y==round(y)){
             int m;
             if (f >> m){
+                month = m;
+                if (pr->inDateFormat != 2) pr->inDateFormat=3;
                 e = readChar(f,fn,c);
                 if (e==EXIT_FAILURE) return e;
                 if (c=='-'){
                     int d;
                     if (f >> d){
+                        day = d;
                         e = readChar(f,fn,c);
                         if (e==EXIT_FAILURE) return e;
                         if (c==')' || c==',') {
@@ -416,10 +528,16 @@ int readDate(istream& f,string fn,Pr* pr,double& y){
                             double r;
                             e = monthDayToReal(m,d,r);
                             if (e==EXIT_FAILURE) return e;
-                            y = (y+r);
+                            y = (y+r)*sign;
                             return EXIT_SUCCESS;
                         }
                     }
+                } else if (c==')' || c==','){
+                    double r;
+                    e = monthToReal(m,r);
+                    if (e==EXIT_FAILURE) return e;
+                    y = (y+r)*sign;
+                    return EXIT_SUCCESS;
                 }
             }
         }
@@ -428,10 +546,11 @@ int readDate(istream& f,string fn,Pr* pr,double& y){
     return (EXIT_FAILURE);
 }
 
-int readDate1(istream& f,string fn,char c,Pr* pr,double& y){
+int readDate1(istream& f,string fn,char c,Pr* pr,double& y,double& month,double& day){
     string wd="";
     wd+=c;
     int e;
+    int sign = 1;
     while (f.get(c) && c>=33 && c<=126 && c!='-') {
         wd+=c;
     }
@@ -442,28 +561,43 @@ int readDate1(istream& f,string fn,char c,Pr* pr,double& y){
         return EXIT_FAILURE;
     }
     if (c=='-' && y==round(y)){
-            int m;
-            if (f >> m){
-                e = readChar(f,fn,c);
-                if (e==EXIT_FAILURE) return e;
-                if (c=='-'){
-                    int d;
-                    if (f >> d){
-                        pr->inDateFormat=2;
-                        double r;
-                        e = monthDayToReal(m,d,r);
-                        if (e==EXIT_FAILURE) return e;
-                        y = (y+r);
-                        return EXIT_SUCCESS;
-                    }
+        if (y<0){
+            sign = -1;
+            y = -y;
+        }
+        int m;
+        if (f >> m){
+            month = m;
+            if (pr->inDateFormat != 2) pr->inDateFormat=3;
+            e = readChar(f,fn,c);
+            if (e==EXIT_FAILURE) return e;
+            if (c=='-'){
+                int d;
+                if (f >> d){
+                    day = d;
+                    pr->inDateFormat=2;
+                    double r;
+                    e = monthDayToReal(m,d,r);
+                    if (e==EXIT_FAILURE) return e;
+                    y = (y+r)*sign;
+                    return EXIT_SUCCESS;
                 }
+            } else {
+                f.unget();
+                double r;
+                e = monthToReal(m,r);
+                if (e==EXIT_FAILURE) return e;
+                y = (y+r)*sign;
+                return EXIT_SUCCESS;
             }
+        }
     }
     else {
         if (pr->inDateFormat!=2){
             if (y>=9 && y<=9999) pr->inDateFormat=1;
             else if (pr->inDateFormat!=1) pr->inDateFormat=0;
         }
+        y = y*sign;
         return EXIT_SUCCESS;
     }
     cerr<<"Error in the file "<<fn<<" : real or date format year-month-date expected"<<endl;
@@ -1660,6 +1794,8 @@ string nexus(int i,Pr* pr,Node** nodes){
     }
     if (pr->outDateFormat==2){
         date<<realToYearMonthDay(nodes[i]->D);
+    } else if (pr->outDateFormat==3){
+        date<<realToYearMonth(nodes[i]->D);
     } else{
         date<<nodes[i]->D;
     }
@@ -1689,6 +1825,8 @@ string nexusDate(int i,Pr* pr,Node** nodes){
     }
     if (pr->outDateFormat==2){
         date<<realToYearMonthDay(nodes[i]->D);
+    } else if (pr->outDateFormat==3){
+        date<<realToYearMonth(nodes[i]->D);
     } else{
         date<<nodes[i]->D;
     }
@@ -1718,6 +1856,8 @@ string nexusIC(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double* H_m
     }
     if (pr->outDateFormat==2){
         date<<realToYearMonthDay(nodes[i]->D);
+    } else if (pr->outDateFormat==3){
+        date<<realToYearMonth(nodes[i]->D);
     } else{
         date<<nodes[i]->D;
     }
@@ -1727,6 +1867,9 @@ string nexusIC(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double* H_m
         if (pr->outDateFormat==2){
             dmin<< realToYearMonthDay(D_min[i]);
             dmax<< realToYearMonthDay(D_max[i]);
+        } else if (pr->outDateFormat==3){
+            dmin<< realToYearMonth(D_min[i]);
+            dmax<< realToYearMonth(D_max[i]);
         } else {
             dmin<< D_min[i];
             dmax<< D_max[i];
@@ -1763,6 +1906,8 @@ string nexusICDate(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double*
     }
     if (pr->outDateFormat==2){
         date<<realToYearMonthDay(nodes[i]->D);
+    } else if (pr->outDateFormat==3){
+        date<<realToYearMonth(nodes[i]->D);
     } else{
         date<<nodes[i]->D;
     }
@@ -1772,6 +1917,9 @@ string nexusICDate(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double*
         if (pr->outDateFormat==2){
             dmin<< realToYearMonthDay(D_min[i]);
             dmax<< realToYearMonthDay(D_max[i]);
+        } else if (pr->outDateFormat==3){
+            dmin<< realToYearMonth(D_min[i]);
+            dmax<< realToYearMonth(D_max[i]);
         } else{
             dmin<< D_min[i];
             dmax<< D_max[i];
@@ -2661,3 +2809,336 @@ void collapseUnInformativeBranches(Pr* &pr,Node** &nodes){
     pr = prReduced;
     nodes = nodesReduced;
 }
+
+
+void adjustNodeDateToYMD(Node*& node,int m1,int d1,int m2,int d2){
+    double r;
+    int md;
+    if (node->type == 'p'){
+        double year = node->D;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){//only year
+            node->type = 'b';
+            monthDayToReal(1,1,r);
+            node->lower = sign*(year + r);
+            monthDayToReal(12,31,r);
+            node->upper = sign*(year + r);
+        } else if (d1<0){//only year-month
+            node->type = 'b';
+            monthDayToReal(m1,1,r);
+            node->lower = sign*(year + r);
+            maxDate(m1,md);
+            monthDayToReal(m1,md,r);
+            node->upper = sign*(year + r);
+        }
+    }
+    else if (node->type == 'l'){
+        double year = node->lower;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthDayToReal(1,1,r);
+            node->lower = sign*(year + r);
+        } else if (d1<0){
+            monthDayToReal(m1,1,r);
+            node->lower = sign*(year + r);
+        }
+    }
+    else if (node->type == 'u'){
+        double year = node->upper;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthDayToReal(12,31,r);
+            node->upper = sign*(year + r);
+        } else if (d1<0){
+            maxDate(m1,md);
+            monthDayToReal(m1,md,r);
+            node->upper = sign*(year + r);
+        }
+    }
+    else if (node->type == 'b'){
+        double year = node->lower;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthDayToReal(1,1,r);
+            node->lower = sign*(year + r);
+        } else if (d1<0){
+            monthDayToReal(m1,1,r);
+            node->lower = sign*(year + r);
+        }
+        
+        year = node->upper;
+        sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m2<0){
+            monthDayToReal(12,31,r);
+            node->upper = sign*(year + r);
+        } else if (d2<0){
+            maxDate(m2,md);
+            monthDayToReal(m2,md,r);
+            node->upper = sign*(year + r);
+        }
+    }
+}
+
+void adjustDateToYMD(Date*& date,int m1,int d1,int m2,int d2){
+    double r;
+    int md;
+    if (date->type == 'p'){
+        double year = date->date;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){//only year
+            date->type = 'b';
+            monthDayToReal(1,1,r);
+            date->lower = sign*(year + r);
+            monthDayToReal(12,31,r);
+            date->upper = sign*(year + r);
+        } else if (d1<0){//only year-month
+            date->type = 'b';
+            monthDayToReal(m1,1,r);
+            date->lower = sign*(year + r);
+            maxDate(m1,md);
+            monthDayToReal(m1,md,r);
+            date->upper = sign*(year + r);
+        }
+    }
+    else if (date->type == 'l'){
+        double year = date->lower;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthDayToReal(1,1,r);
+            date->lower = sign*(year + r);
+        } else if (d1<0){
+            monthDayToReal(m1,1,r);
+            date->lower = sign*(year + r);
+        }
+    }
+    else if (date->type == 'u'){
+        double year = date->upper;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthDayToReal(12,31,r);
+            date->upper = sign*(year + r);
+        } else if (d1<0){
+            maxDate(m1,md);
+            monthDayToReal(m1,md,r);
+            date->upper = sign*(year + r);
+        }
+    }
+    else if (date->type == 'b'){
+        double year = date->lower;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthDayToReal(1,1,r);
+            date->lower = sign*(year + r);
+        } else if (d1<0){
+            monthDayToReal(m1,1,r);
+            date->lower = sign*(year + r);
+        }
+        
+        year = date->upper;
+        sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m2<0){
+            monthDayToReal(12,31,r);
+            date->upper = sign*(year + r);
+        } else if (d2<0){
+            maxDate(m2,md);
+            monthDayToReal(m2,md,r);
+            date->upper = sign*(year + r);
+        }
+    }
+}
+
+void adjustNodeDateToYM(Node*& node,int m1,int d1,int m2,int d2){
+    double r;
+    if (node->type == 'p'){
+        double year = node->D;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){//only year
+            node->type = 'b';
+            monthToReal(1,r);
+            node->lower = sign*(year + r);
+            monthToReal(12,r);
+            node->upper = sign*(year + r);
+        }
+    }
+    else if (node->type == 'l'){
+        double year = node->lower;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthToReal(1,r);
+            node->lower = sign*(year + r);
+        }
+    }
+    else if (node->type == 'u'){
+        double year = node->upper;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthToReal(12,r);
+            node->upper = sign*(year + r);
+        }
+    }
+    else if (node->type == 'b'){
+        double year = node->lower;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthToReal(1,r);
+            node->lower = sign*(year + r);
+        }
+        year = node->upper;
+        sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m2<0){
+            monthToReal(12,r);
+            node->upper = sign*(year + r);
+        }
+    }
+}
+
+void adjustDateToYM(Date*& date,int m1,int d1,int m2,int d2){
+    double r;
+    int md;
+    if (date->type == 'p'){
+        double year = date->date;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){//only year
+            date->type = 'b';
+            monthToReal(1,r);
+            date->lower = sign*(year + r);
+            monthToReal(12,r);
+            date->upper = sign*(year + r);
+        }
+    }
+    else if (date->type == 'l'){
+        double year = date->lower;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthToReal(1,r);
+            date->lower = sign*(year + r);
+        }
+    }
+    else if (date->type == 'u'){
+        double year = date->upper;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthToReal(12,r);
+            date->upper = sign*(year + r);
+        }
+    }
+    else if (date->type == 'b'){
+        double year = date->lower;
+        int sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m1<0){
+            monthToReal(1,r);
+            date->lower = sign*(year + r);
+        }
+        
+        year = date->upper;
+        sign = 1;
+        if (year < 0 ) {
+            year = -year;
+            sign = -1;
+        }
+        year = floor(year);
+        if (m2<0){
+            monthToReal(12,r);
+            date->upper = sign*(year + r);
+        }
+    }
+}
+
+
+
+

@@ -22,7 +22,7 @@ Pr* getOptions( int argc, char** argv )
 
 Pr* getCommandLine( int argc, char** argv)
 {
-    const string VERSION="v1.6.6";
+    const string VERSION="v1.7";
     Pr* opt = new Pr();
     int c;
     string s;
@@ -377,7 +377,7 @@ Pr* getCommandLine( int argc, char** argv)
 
 void printInterface(ostream& in, Pr* opt)
 {
-    const string VERSION = "v1.6.6";
+    const string VERSION = "v1.7";
 
     in<<"\nLEAST-SQUARE METHODS TO ESTIMATE RATES AND DATES - "<<VERSION<<" \n\n";
     in<<"\nInput files:\n";
@@ -387,6 +387,9 @@ void printInterface(ostream& in, Pr* opt)
         if (opt->inDateFormat==2){
             tMRCA<<realToYearMonthDay(opt->mrca);
             tLeaves<<realToYearMonthDay(opt->leaves);
+        } else if (opt->inDateFormat==3){
+            tMRCA<<realToYearMonth(opt->mrca);
+            tLeaves<<realToYearMonth(opt->leaves);
         } else {
             tMRCA<<opt->mrca;
             tLeaves<<opt->leaves;

@@ -57,13 +57,19 @@ double readDouble(string line,int& pos);
 
 int readdouble(istream& f,string fn,double& r);
 
+string realToYearMonth(double year);
+    
 string realToYearMonthDay(double y);
 
 int monthDayToReal(int m,int d,double &r);
 
-int readDate(istream& f,string fn,Pr* pr,double& y);
+int monthToReal(int m,double& r);
 
-int readDate1(istream& f,string fn,char c,Pr* pr,double& y);
+int maxDate(int m,int & md);
+    
+int readDate(istream& f,string fn,Pr* pr,double& y,double& m,double& d);
+
+int readDate1(istream& f,string fn,char c,Pr* pr,double& y,double& m,double& d);
 
 bool readDateFromString(const char* st,double& f);
 
@@ -290,5 +296,13 @@ void collapse(int i,int j,Pr* pr,Node** nodes,Node** nodes_new,int &cc,int* &tab
 void collapseTreeReOrder(Pr* pr,Node** nodes,Pr* prReduced,Node** nodesReduced,int* &tab);
 
 void collapseUnInformativeBranches(Pr* &pr,Node** &nodes);
+
+void adjustNodeDateToYMD(Node*& node,int m1,int d1,int m2,int d2);
+
+void adjustNodeDateToYM(Node*& node,int m1,int d1,int m2,int d2);
+
+void adjustDateToYMD(Date*& date,int m1,int d1,int m2,int d2);
+
+void adjustDateToYM(Date*& date,int m1,int d1,int m2,int d2);
 
 #endif
