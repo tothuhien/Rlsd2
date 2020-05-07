@@ -1,6 +1,6 @@
 # Rlsd2
 This package is developped as an R-wrapper for lsd2 (https://github.com/tothuhien/lsd2).
-For now, the package is only tested under Unix system.
+For now, the package is only tested under Unix and Mac systems.
 
 All options and file format used here are the same as the original lsd2, but this R package also accepts some R-object inputs. Users could refer to that the original lsd2 for better documentation.
 
