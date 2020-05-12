@@ -9,7 +9,7 @@ bool calculateOutliers(Pr* & pr,Node** & nodes,double & median_rate){
         oss<<"- Rate partition can not be included in estimating outliers.\n";
         pr->warningMessage.push_back(oss.str());
     }
-    cout<<"Calculating the outlier nodes with Zscore threshold "<<pr->e<<" (setable via option -e) ..."<<endl;
+    cout<<"Calculating the outlier nodes with Zscore threshold "<<pr->e<<" (settable via option Zscore) ..."<<endl;
     if (pr->estimate_root=="" || pr->estimate_root=="k"){
         bool givenRate = pr->givenRate[0];
         vector<double> dates_min;
@@ -135,7 +135,7 @@ bool calculateOutliers(Pr* & pr,Node** & nodes,double & median_rate){
             bool bl = remove_outlier_nodes(pr,nodes);
             if (!bl) {
                 std::ostringstream oss;
-                oss<<"- Removing outliers make the initial root lost. If you don't want that, you can try to reroot the tree or increase the Zscore threshold in option -e to exclude some outliers.\n"<<endl;
+                oss<<"- Removing outliers make the initial root lost. If you don't want that, you can try to reroot the tree or increase the Zscore threshold in option to exclude some outliers.\n"<<endl;
                 pr->warningMessage.push_back(oss.str());
             }
             

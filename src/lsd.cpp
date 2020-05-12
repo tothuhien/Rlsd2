@@ -38,14 +38,13 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
 {
 
     // initialise input and output streams
-    InputOutputStream *io  = new InputOutputFile(opt);
+    bool allIsOK = true;
+    InputOutputStream *io  = new InputOutputFile(opt,allIsOK);
+    if (!allIsOK) return EXIT_FAILURE;
     printInterface(*(io->outResult), opt);
-    clock_t start = clock();
-    double elapsed_time;
     if (io->inOutgroup){
         extrait_outgroup(io, opt);
     }
-    ifstream gr(opt->rate.c_str());
     *(io->outTree1)<<"#NEXUS\n";
     *(io->outTree2)<<"#NEXUS\n";
     bool constraintConsistent=true;
@@ -107,7 +106,7 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
         double br=0;
         if (opt->givenRate[0]){
             string line;
-            if( getline(gr, line)) {
+            if( getline(*(io->inRate), line)) {
                 vector<double> all_rates = read_double_from_line(line);
                 opt->rho = all_rates[0];
                 if (all_rates.size() > 1){
@@ -269,7 +268,6 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
     *(io->outResult)<<"\n*********************************************************\n";
     *(io->outTree1)<<"End;\n";
     *(io->outTree2)<<"End;\n";
-    gr.close();
     delete io;
     return EXIT_SUCCESS;
 }
@@ -475,7 +473,7 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
         SEXP res = PROTECT(allocVector(VECSXP, 2));
         SET_VECTOR_ELT(res, 0, rho);
         SET_VECTOR_ELT(res, 1, root);
-        UNPROTECT(3);
+        UNPROTECT(3);  
         delete opt;
         return res;
     } else {

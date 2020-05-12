@@ -21,6 +21,7 @@ InputOutputStream::InputOutputStream () {
     inTree = nullptr;
     inOutgroup = nullptr;
     inDate = nullptr;
+    inRate = nullptr;
     inPartition = nullptr;
     outResult = nullptr;
     outTree1 = nullptr;
@@ -28,7 +29,7 @@ InputOutputStream::InputOutputStream () {
     outTree3 = nullptr;
 }
 
-InputOutputStream::InputOutputStream(string tree, string outgroup, string date, string partition) {
+InputOutputStream::InputOutputStream(string tree, string outgroup, string date, string rate, string partition) {
     inTree = nullptr;
     inOutgroup = nullptr;
     inDate = nullptr;
@@ -36,6 +37,7 @@ InputOutputStream::InputOutputStream(string tree, string outgroup, string date, 
     setTree(tree);
     setOutgroup(outgroup);
     setDate(date);
+    setRate(rate);
     setPartition(partition);
     outResult = new ostringstream;
     outTree1 = new ostringstream;
@@ -55,6 +57,10 @@ InputOutputStream::~InputOutputStream() {
     if (inDate) {
         delete inDate;
         inDate = nullptr;
+    }
+    if (inRate) {
+        delete inRate;
+        inRate = nullptr;
     }
     if (inPartition) {
         delete inPartition;
@@ -100,6 +106,14 @@ void InputOutputStream::setDate(string str) {
     inDate = new istringstream(str);
 }
 
+void InputOutputStream::setRate(string str) {
+    if (str.empty())
+        return;
+    if (inRate)
+        delete inRate;
+    inRate = new istringstream(str);
+}
+
 void InputOutputStream::setPartition(string str) {
     if (str.empty())
         return;
@@ -108,14 +122,14 @@ void InputOutputStream::setPartition(string str) {
     inPartition = new istringstream(str);
 }
 
-InputOutputFile::InputOutputFile(Pr *opt) : InputOutputStream() {
+InputOutputFile::InputOutputFile(Pr *opt,bool& allIsOK) : InputOutputStream() {
     treeIsFile = true;
     // open the tree file
     ifstream *tree_file = new ifstream(opt->inFile);
     inTree = tree_file;
     if (!tree_file->is_open()){
         cerr << "Error: cannot open the input tree file " << opt->inFile << endl;
-        exit(EXIT_FAILURE);
+        allIsOK = false;
     }
     
     // open outgroup file
@@ -124,7 +138,7 @@ InputOutputFile::InputOutputFile(Pr *opt) : InputOutputStream() {
         inOutgroup = outgroup_file;
         if (!outgroup_file->is_open()) {
             cerr << "Error: cannot open outgroup file " << opt->fnOutgroup << endl;
-            exit(EXIT_FAILURE);
+            allIsOK = false;
         }
     }
     
@@ -134,17 +148,26 @@ InputOutputFile::InputOutputFile(Pr *opt) : InputOutputStream() {
         inDate = date_file;
         if (!date_file->is_open()) {
             cerr << "Error: cannot open date file " << opt->inDateFile << endl;
-            exit(EXIT_FAILURE);
+            allIsOK = false;
         }
     }
-
-    // open date file
+    // open rate file
+    if (opt->rate != "") {
+        ifstream *rate_file = new ifstream(opt->rate);
+        inRate = rate_file;
+        if (!rate_file->is_open()) {
+            cerr << "Error: cannot open rate file " << opt->rate << endl;
+            allIsOK = false;
+        }
+    }
+    
+    // open partition file
     if (opt->partitionFile != "") {
         ifstream *part_file = new ifstream(opt->partitionFile);
         inPartition = part_file;
         if (!part_file->is_open()) {
             cerr << "Error: cannot open date file " << opt->partitionFile << endl;
-            exit(EXIT_FAILURE);
+            allIsOK = false;
         }
     }
     
@@ -153,28 +176,28 @@ InputOutputFile::InputOutputFile(Pr *opt) : InputOutputStream() {
     outResult = result_file;
     if (!result_file->is_open()) {
         cerr << "Error: cannot create the output file "<< opt->outFile << endl;
-        exit(EXIT_FAILURE);
+        allIsOK = false;
     }
 
     ofstream *tree1_file = new ofstream(opt->treeFile1);
     outTree1 = tree1_file;
     if (!tree1_file->is_open()) {
         cerr << "Error: can not create the output tree file " << opt->treeFile1 << endl;
-        exit(EXIT_FAILURE);
+        allIsOK = false;
     }
 
     ofstream *tree2_file = new ofstream(opt->treeFile2);
     outTree2 = tree2_file;
     if (!tree2_file->is_open()) {
         cerr << "Error: can not create the output tree file " << opt->treeFile2 << endl;
-        exit(EXIT_FAILURE);
+        allIsOK = false;
     }
 
     ofstream *tree3_file = new ofstream(opt->treeFile3);
     outTree3 = tree3_file;
     if (!tree3_file->is_open()) {
         cerr << "Error: can not create the output tree file " << opt->treeFile3 << endl;
-        exit(EXIT_FAILURE);
+        allIsOK = false;
     }
 }
 
@@ -187,6 +210,9 @@ InputOutputFile::~InputOutputFile() {
     }
     if (inDate) {
         ((ifstream*)inDate)->close();
+    }
+    if (inRate) {
+        ((ifstream*)inRate)->close();
     }
     if (inPartition) {
         ((ifstream*)inPartition)->close();
@@ -2672,7 +2698,7 @@ int median_branch_lengths(Pr* pr,Node** nodes,double& m){
         }
     }
     if (bl.size()==0){
-        cerr<<"Not any branch length >= "<<pr->nullblen<<" (informative branch length threshold set via option -l)"<<endl;
+        cerr<<"Not any branch length >= "<<pr->nullblen<<" (informative branch length threshold set via option nullblen)"<<endl;
         return (EXIT_FAILURE);
     }
     m = median(bl);

@@ -30,7 +30,7 @@ public:
      constructor
      @param opt input option
      */
-    InputOutputFile(Pr *opt);
+    InputOutputFile(Pr *opt,bool& allIsOK);
     
     /** destructor */
     virtual ~InputOutputFile();
