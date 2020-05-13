@@ -2651,6 +2651,7 @@ void imposeMinBlen(ostream& file,Pr* pr, Node** nodes, double median_rate,bool m
             }
         }
         else {
+            minblen = m;
             if (pr->minblenL < 0){
                 cout<<"Minimum branch length of time scaled tree (settable via option minblen and minblenL): "<<m<<endl;
                 file<<"Minimum branch length of time scaled tree (settable via option minblen and minblenL): "<<m<<"\n";
