@@ -15,8 +15,8 @@
 #' @param estimateRoot either "l","a" or "as", to esimate or re-estimate the roots. Use "l" (only for rooted tree) to re-estimate the root around the given root, "a" to (re)-estimate the root over all branches using fast methode, "as" to (re)-esimate to root over all branches with slow methode (apply temporal constraints through-out the whole search process)
 #' @param b the parameter to adjust variance, estimate by default
 #' @param q the standard deviation of lognormal distribution to apply on branch lengths when calculating confidence intervals.
-#' @param mrca just use in the case `inputDate` is not given to estimate relative dates, to specify the date of the root. Must be used with `leaves`.
-#' @param leaves just use in the case `inputDate` is not given to estimate relative dates, to specify the date of all leaves. Must be used with `mrca`.
+#' @param rootDate the date of the root. 
+#' @param tipsDate the date of all leaves
 #' @param verbose verbose mode for output messages.
 #' @param keepOutgroup TRUE to keep the outgroups specifed in `outGroup`, FALSE to remove them.
 #' @param nullblen every branch length <= `nullblen` will be collapsed before dating. By default is 0.5/`seqLen`
@@ -45,7 +45,7 @@
 lsd2 <- function(inputTree, inputDate = NA, seqLen, partitionFile = NA, outFile = NA, outGroup = NA, givenRate = NA,
                  constraint = TRUE, variance = 1, confidenceIntervalSampling = NA,
                  minRate = 1e-10, estimateRoot = NA, b = NA, q = 0.2,
-                 mrca=NA, leaves =NA, verbose = FALSE, keepOutgroup = FALSE,
+                 rootDate=NA, tipsDate =NA, verbose = FALSE, keepOutgroup = TRUE,
                  nullblen = NA, support =  NA,  minblen = NA, minblenL = NA,
                  roundTime = NA, outDateFormat = NA,  m = 10, ZscoreOutlier = NA, nbData = 1){
   if ((typeof(inputTree) == "character") && file.exists(inputTree)){
@@ -117,19 +117,19 @@ lsd2 <- function(inputTree, inputDate = NA, seqLen, partitionFile = NA, outFile 
 
   res = .Call("Rlsd2",inputTree,  inputDate,  partitionFile,  outFile,  outGroup,  givenRate,
         seqLen,  constraint ,  variance ,  confidenceIntervalSampling ,  minRate ,
-        estimateRoot ,  b ,  q ,  mrca ,  leaves ,  verbose ,  keepOutgroup ,
+        estimateRoot ,  b ,  q ,  rootDate ,  tipsDate ,  verbose ,  keepOutgroup ,
         nullblen ,  support ,   minblen ,  minblenL ,
         roundTime,  outDateFormat , m , ZscoreOutlier, nbData)
 
 
   if (!is.null(res)){
     names(res) <- c("rate","tMRCA")
-    cat("Reading output trees ...")
+    cat("Reading output trees ...\n")
     res[["newickTree"]] = read.tree(paste0(outFile,".nwk"))
     res[["nexusTreeFile"]] = read.beast(paste0(outFile,".nexus"))
     res[["dateNexusTreeFile"]] = read.beast(paste0(outFile,".date.nexus"))
     res[["outResultFiles"]] = c(outFile,paste0(outFile,".nwk"),paste0(outFile,".nexus"),paste0(outFile,".date.nexus"))
-    cat("Done.")
+    cat("Done.\n")
   }
   return (res)
 }

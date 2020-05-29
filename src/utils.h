@@ -225,8 +225,6 @@ Node** cloneLeaves(Pr* pr,Node** nodes,int f);
 
 void cloneInternalNodes(Pr* pr,Node** nodes,Node** & nodes_new,int f);
 
-void shiftInternalConstraints(Pr* & pr);
-
 void computeSuc_polytomy(Pr* pr,Node** nodes);
 
 list<int> pos_polytomy(int i,Pr* pr,Node** nodes);
@@ -305,4 +303,5 @@ void adjustDateToYMD(Date*& date,int m1,int d1,int m2,int d2);
 
 void adjustDateToYM(Date*& date,int m1,int d1,int m2,int d2);
 
+int readWholeDate(istream &dateFile,Pr* pr,int& type,double& v1,double& v2, double& m1,double& m2,double& d1,double& d2,int& dateFormat);
 #endif

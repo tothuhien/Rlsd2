@@ -19,10 +19,10 @@ lsd2(
   estimateRoot = NA,
   b = NA,
   q = 0.2,
-  mrca = NA,
-  leaves = NA,
+  rootDate = NA,
+  tipsDate = NA,
   verbose = FALSE,
-  keepOutgroup = FALSE,
+  keepOutgroup = TRUE,
   nullblen = NA,
   support = NA,
   minblen = NA,
@@ -63,9 +63,9 @@ lsd2(
 
 \item{q}{the standard deviation of lognormal distribution to apply on branch lengths when calculating confidence intervals.}
 
-\item{mrca}{just use in the case `inputDate` is not given to estimate relative dates, to specify the date of the root. Must be used with `leaves`.}
+\item{rootDate}{the date of the root.}
 
-\item{leaves}{just use in the case `inputDate` is not given to estimate relative dates, to specify the date of all leaves. Must be used with `mrca`.}
+\item{tipsDate}{the date of all leaves}
 
 \item{verbose}{verbose mode for output messages.}
 

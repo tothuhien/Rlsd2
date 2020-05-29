@@ -183,22 +183,6 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
         oss<<"- Confidence intervals are not warranted under non-constraint mode.\n";
         pr->warningMessage.push_back(oss.str());
     }
-    if (pr->relative) {
-        std::ostringstream oss;
-        ostringstream tMRCA,tLeaves;
-        if (pr->outDateFormat==2){
-            tMRCA<<realToYearMonthDay(pr->mrca);
-            tLeaves<<realToYearMonthDay(pr->leaves);
-        } else if (pr->outDateFormat==3){
-            tMRCA<<realToYearMonth(pr->mrca);
-            tLeaves<<realToYearMonth(pr->leaves);
-        } else {
-            tMRCA<<pr->mrca;
-            tLeaves<<pr->leaves;
-        }
-        oss<<"- The results correspond to the estimation of relative dates when T[mrca]="<<tMRCA.str()<<" and T[tips]="<<tLeaves.str()<<"\n";
-        pr->warningMessage.push_back(oss.str());
-    }
     ostringstream tMRCA;
     if (pr->outDateFormat==2){
         tMRCA<<realToYearMonthDay(nodes[0]->D);
@@ -210,7 +194,7 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
     if (pr->ratePartition.size()==0) {
         std::ostringstream oss;
         oss<<"- Dating results:\n";
-        oss<<" rate "<<pr->rho<<", tMRCA "<<tMRCA.str()<<", objective function "<<pr->objective<<"\n";
+        oss<<" rate "<<pr->rho<<", tMRCA "<<tMRCA.str()<<"\n";
         pr->resultMessage.push_back(oss.str());
     }
     else{
@@ -223,7 +207,7 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
             if (pr->multiplierRate[i]>0)
                 oss<<"rate "<<pr->ratePartition[i-1]->name.c_str()<<" "<<pr->rho*pr->multiplierRate[i]<<", ";
         }
-        oss<<"tMRCA "<<tMRCA.str()<<", objective function "<<pr->objective<<"\n";
+        oss<<"tMRCA "<<tMRCA.str()<<"\n";
         pr->resultMessage.push_back(oss.str());
     }
     
@@ -261,7 +245,7 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
         }
         if (pr->ratePartition.size()==0) {
             std::ostringstream oss;
-            oss<<" rate "<<pr->rho<<", tMRCA "<<tMRCA.str()<<", objective function "<<pr->objective<<"\n";
+            oss<<" rate "<<pr->rho<<", tMRCA "<<tMRCA.str()<<"\n";
             pr->resultMessage.push_back(oss.str());
         }
         else{
@@ -273,7 +257,7 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
                 if (pr->multiplierRate[i]>0)
                     oss<<"rate "<<pr->ratePartition[i-1]->name.c_str()<<" "<<pr->rho*pr->multiplierRate[i]<<", ";
             }
-            oss<<"tMRCA "<<tMRCA.str()<<", objective function "<<pr->objective<<"\n";
+            oss<<"tMRCA "<<tMRCA.str()<<"\n";
             pr->resultMessage.push_back(oss.str());
         }
     }
@@ -305,7 +289,7 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
         
         if (count>0) {
             std::ostringstream oss;
-            oss<<"- Number of violated temporal constraints (nodes having date smaller than the one of its parent):  "<<count<<" ("<<(count*100)/(double)pr->nbBranches<<"%%). Try option -c to impose temporal constraints on the estimated trees.\n";
+            oss<<"- Number of violated temporal constraints (nodes having date smaller than the one of its parent):  "<<count<<" ("<<(count*100)/(double)pr->nbBranches<<"%%). Try constraint=TRUE to impose temporal constraints on the estimated trees.\n";
             pr->warningMessage.push_back(oss.str());
         }
         
@@ -351,7 +335,7 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
         }
         if (pr->ratePartition.size()==0) {
             std::ostringstream oss;
-            oss<<" rate "<<pr->rho<<" ["<<rho_left<<"; "<<rho_right<<"], tMRCA "<<tMRCA.str()<<" ["<<tmin.str()<<"; "<<tmax.str()<<"], objective function "<<pr->objective<<"\n";
+            oss<<" rate "<<pr->rho<<" ["<<rho_left<<"; "<<rho_right<<"], tMRCA "<<tMRCA.str()<<" ["<<tmin.str()<<"; "<<tmax.str()<<"]\n";
             pr->resultMessage.push_back(oss.str());
         }
         else{
@@ -362,7 +346,7 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
             for (int i=1; i<=pr->ratePartition.size(); i++) {
                 if (pr->multiplierRate[i]>0) oss<<"rate "<<pr->ratePartition[i-1]->name.c_str()<<" "<<pr->rho*pr->multiplierRate[i]<<" ["<<other_rhos_left[i]<<"; "<<other_rhos_right[i]<<"], ";
             }
-            oss<<"tMRCA "<<tMRCA.str()<<" ["<<tmin.str()<<"; "<<tmax.str()<<"], objective function "<<pr->objective<<"\n";
+            oss<<"tMRCA "<<tMRCA.str()<<" ["<<tmin.str()<<"; "<<tmax.str()<<"]\n";
             pr->resultMessage.push_back(oss.str());
         }
         

@@ -474,6 +474,10 @@ bool starting_pointQP(Pr* pr,Node** nodes,list<int> &active_set){
                 active_set.push_back(minI);
             }
             else{
+               if (lower(nodes[i]) || upper(nodes[i])){
+                 desactiveLimit(nodes[i]);
+                 active_set.remove(-i);
+               }
                 nodes[i]->D = nodes[i]->upper;
                 activeUpper(nodes[i]);
                 active_set.push_back(-i);

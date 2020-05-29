@@ -289,7 +289,7 @@ int getLineNumber(istream &myfile){
 int readChar(istream& f,string fn,char& r){
     if (f.get(r)) return EXIT_SUCCESS;
     else {
-        cerr<<"Error in the file "<<fn<<endl;
+        cerr<<"Error in "<<fn<<endl;
         return EXIT_FAILURE;
     }
 }
@@ -297,7 +297,7 @@ int readChar(istream& f,string fn,char& r){
 int readdouble(istream& f,string fn,double& r){
     if (f >>r) return EXIT_SUCCESS;
     else {
-        cerr<<"Error in the file "<<fn<<" : real expected"<<endl;
+        cerr<<"Error in "<<fn<<" : real expected"<<endl;
         return EXIT_FAILURE;
     }
 }
@@ -568,7 +568,7 @@ int readDate(istream& f,string fn,Pr* pr,double& y,double& month,double& day){
             }
         }
     }
-    cerr<<"Error in the file "<<fn<<" : real or date format year-month-date expected"<<endl;
+    cerr<<"Error reading input date : real or date format year-month-date expected"<<endl;
     return (EXIT_FAILURE);
 }
 
@@ -583,7 +583,7 @@ int readDate1(istream& f,string fn,char c,Pr* pr,double& y,double& month,double&
     try {
         y=stod(wd.c_str());
     } catch (const std::invalid_argument&) {
-        cerr<<"Error in the file "<<fn<<" : real or date format year-month-date expected, found "<<wd<<endl;
+        cerr<<"Error reading input date : real or date format year-month-date expected, found "<<wd<<endl;
         return EXIT_FAILURE;
     }
     if (c=='-' && y==round(y)){
@@ -626,8 +626,75 @@ int readDate1(istream& f,string fn,char c,Pr* pr,double& y,double& month,double&
         y = y*sign;
         return EXIT_SUCCESS;
     }
-    cerr<<"Error in the file "<<fn<<" : real or date format year-month-date expected"<<endl;
+    cerr<<"Error reading input date : real or date format year-month-date expected"<<endl;
     return (EXIT_FAILURE);
+}
+
+
+int readWholeDate(istream &dateFile,Pr* pr,int& type,double& v1,double& v2, double& m1,double& m2,double& d1,double& d2,int& dateFormat){
+    char c;
+    int e = readChar(dateFile,"the input date",c);
+    if (e==EXIT_FAILURE) return e;
+    while (c<33 || c>126) {
+        e=readChar(dateFile,"the input date",c);
+        if (e==EXIT_FAILURE) return e;
+    }
+    if (c=='l' || c=='L' || c=='u' || c=='U' || c=='b' || c=='B'){//interval value
+        char p;
+        e = readChar(dateFile,"the input date",p);
+        if (e==EXIT_FAILURE) return e;
+        if (p=='('){
+            if (c=='l' || c=='L'){
+                type='l';
+                e=readDate(dateFile,"the input date",pr,v1,m1,d1);
+                if (e==EXIT_FAILURE) return e;
+                if (m1<0 && dateFormat!=3) dateFormat = 1;
+                else if (d1<0) dateFormat = 3;
+            }
+            else if (c=='u' || c=='U'){
+                type='u';
+                e=readDate(dateFile,"the input date",pr,v1,m1,d1);
+                if (e==EXIT_FAILURE) return e;
+                if (m1<0 && dateFormat!=3) dateFormat = 1;
+                else if (d1<0) dateFormat = 3;
+            }
+            else if (c=='b' || c=='B'){
+                type='b';
+                e=readDate(dateFile,"the input date",pr,v1,m1,d1);
+                if (e==EXIT_FAILURE) return e;
+                e=readDate(dateFile,"the input date",pr,v2,m2,d2);
+                if (e==EXIT_FAILURE) return e;
+                if (m1<0 || m2<0) dateFormat = 1;
+                else if ((d1<0 || d2<0) && dateFormat!=3) dateFormat = 3;
+                if (v1>v2) {
+                    double t=v1;
+                    v1=v2;
+                    v2=t;
+                }
+                if (v1==v2) {
+                    type='p';
+                }
+                else {
+                    type='b';
+                }
+            }
+            while (c<33 || c>126){ 
+                e=readChar(dateFile,"the input date",c);
+                if (e==EXIT_FAILURE) return e;
+            }
+        } else{
+            cerr<<"Error reading the input date: flexible temporal constraints must be defined\n as either 'l(lower_bound)' or 'u(upper_bound)' or 'b(lower_bound,upper_bound)'"<<endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+    else {
+        e = readDate1(dateFile,"the input date",c,pr,v1,m1,d1);
+        if (e==EXIT_FAILURE) return e;
+        if (m1<0 && dateFormat!=3) dateFormat = 1;
+        else if (d1<0) dateFormat = 3;
+        type='p';
+    }
+    return EXIT_SUCCESS;
 }
 
 bool readDateFromString(const char* str,double& f){
@@ -892,15 +959,11 @@ Node** unrooted2rooted(Pr* & pr,Node** nodes){
     double br=nodes[s]->B;
     nodes_new[s]->B=br/2;
     nodes_new[1]->B=br/2;
-    //nodes_new[s]->V=variance(pr,br);
-    //nodes_new[1]->V=variance(pr,br);
     nodes_new[s]->P=0;
     nodes_new[1]->P=0;
     nodes_new[1]->suc.erase(nodes_new[1]->suc.begin());
     nodes_new[0]->suc.push_back(1);
     nodes_new[0]->suc.push_back(s);
-    shiftInternalConstraints(pr);
-    //computeSuc_polytomy(pr,nodes_new);
     for (int i=1;i<=pr->nbBranches;i++) delete nodes[i];
     delete[] nodes;
     pr->rooted = true;
@@ -930,7 +993,6 @@ Node** unrooted2rootedS(Pr* &pr,Node** nodes,int s){//simplier version, use only
     nodes_new[1]->P=0;
     for (int i=0;i<=pr->nbBranches;i++) delete nodes[i];
     delete[] nodes;
-    shiftInternalConstraints(pr);
     pr->rooted = true;
     computeSuc_polytomy(pr,nodes_new);
     return nodes_new;
@@ -1531,24 +1593,6 @@ void cloneInternalNodes(Pr* pr,Node** nodes,Node** &nodes_new,int f){
     }
 }
 
-void shiftInternalConstraints(Pr* &pr){
-    vector<Date*> newIC;
-    for (vector<Date*>::iterator iter=pr->internalConstraints.begin();iter!=pr->internalConstraints.end();iter++){
-        Date* d = (*iter);
-        if (d->mrca.size()>0){
-            vector<int> new_mrca;
-            for (vector<int>::iterator iter=d->mrca.begin();iter!=d->mrca.end();iter++){
-                new_mrca.push_back(*iter+1);
-            }
-            d->mrca=new_mrca;
-        }
-        else{
-            d->id++;
-        }
-        newIC.push_back(d);
-    }
-    pr->internalConstraints=newIC;
-}
 
 bool outlierCheck(Pr* pr,Node** nodes){
     bool* out = new bool[pr->nbBranches+1];
@@ -1835,8 +1879,9 @@ string nexus(int i,Pr* pr,Node** nodes){
             else newLabel+=","+l;
         }
         if (i>0) {
-            if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"]:"+b.str();
-            else return newLabel+")"+nodes[i]->L+":"+b.str();
+            return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"]:"+b.str();
+            //if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"]:"+b.str();
+            //else return newLabel+")"+nodes[i]->L+":"+b.str();
         }
         else{
             return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"];\n";
@@ -1866,8 +1911,9 @@ string nexusDate(int i,Pr* pr,Node** nodes){
             else newLabel+=","+l;
         }
         if (i>0) {
-            if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"]:"+b.str();
-            else return newLabel+")"+nodes[i]->L+":"+b.str();
+            return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"]:"+b.str();
+            //if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"]:"+b.str();
+            //else return newLabel+")"+nodes[i]->L+":"+b.str();
         }
         else{
             return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"];\n";
@@ -1914,8 +1960,9 @@ string nexusIC(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double* H_m
                 else newLabel+=","+l;
             }
             if (i>0) {
-                if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
-                else return newLabel+")"+nodes[i]->L+":"+b.str();
+                return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
+                //if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
+                //else return newLabel+")"+nodes[i]->L+":"+b.str();
             }
             else{
                 return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}];\n";
@@ -1964,8 +2011,9 @@ string nexusICDate(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double*
                 else newLabel+=","+l;
             }
             if (i>0) {
-                if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
-                else return newLabel+")"+nodes[i]->L+":"+b.str();
+                return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
+                //if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
+                //else return newLabel+")"+nodes[i]->L+":"+b.str();
             }
             else{
                 return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}];\n";
@@ -2432,13 +2480,12 @@ int assignRateGroupToTree(Pr* pr,Node** nodes){
     int e;
     for (int i=0; i<pr->ratePartition.size(); i++) {
         Part* group = pr->ratePartition[i];
-        cout<<group->subtrees.size()<<endl;
         for (int j=0; j<group->subtrees.size(); j++) {
             Pair* root = group->subtrees[j]->root;
             int r;
             e = getInternalNodeId(pr,nodes,root->name,r);
             if (e==EXIT_FAILURE) return e;
-            if (contain(r,subroot)) {cout<<r<<" "<<root->name<<" "<<subroot.size()<<endl;
+            if (contain(r,subroot)) {
                 cout<<"Warning: "<<group->name<<" there are overlapped subtrees in the partition file"<<endl;
             }
             else{
@@ -2562,7 +2609,6 @@ void splitLongBranches(Pr* pr,Node** nodes,double th){
             Pair* node = new Pair(false, nodes[i]->L);
             Subtree* subtree = new Subtree(node);
             part->subtrees.push_back(subtree);
-            cout<<nodes[i]->L<<endl;
         }
     }
     for (int i=1;i<pr->nbINodes;i++){
@@ -2573,7 +2619,6 @@ void splitLongBranches(Pr* pr,Node** nodes,double th){
             if (nodes[p]->L == "") nodes[p]->L = "longBranch"+np.str();
             ni<<i;
             if (nodes[i]->L == "") nodes[i]->L = "longBranch"+ni.str();
-            cout<<nodes[i]->L<<" "<<nodes[p]->L<<endl;
             Pair* root = new Pair(false,nodes[p]->L);
             Pair* tip = new Pair(false,nodes[i]->L);
             vector<Pair*> tips;
@@ -2638,7 +2683,7 @@ void imposeMinBlen(ostream& file,Pr* pr, Node** nodes, double median_rate,bool m
     if (round_time==365) unit=" days";
     if (round_time==52) unit=" weeks";
     if (medianRateOK && pr->minblen<0){
-        if (!pr->relative || pr->inDateFormat==2 || pr->round_time!=-1){
+        if (pr->inDateFile!="" || pr->inDateFormat==2 || pr->round_time!=-1){
             minblen = round(round_time*m)/(double)round_time;
             if (pr->minblenL < 0){
                 cout<<"Minimum branch length of time scaled tree (settable via option minblen and minblenL): "<<m<<", rounded to "<<minblen<<" ("<<round(round_time*m)<<unit<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option roundTime)"<<endl;
@@ -2759,19 +2804,47 @@ int collapseTree(Pr* pr,Node** nodes,Node** nodes_new,int* &tab, double toCollap
     int cc=0;//number of internal nodes reduced
     cc++;
     tab[root]=root;
-    for (int i=root;i<pr->nbINodes;i++){
-        if ((abs(nodes_new[i]->B) > toCollapse && (!useSupport || support[i] > pr->support)) || i==root){
-            for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
-                int s=*iter;
-                if (s<pr->nbINodes && (abs(nodes[s]->B) <= toCollapse  || (useSupport && support[s]<= pr->support))) {
-                    tab[s]=-1;
-                    collapse(i, s,  pr, nodes, nodes_new,cc,tab, toCollapse, useSupport,  support);
+    if (pr->removeOutgroup == false && pr->fnOutgroup!=""){
+        for (vector<int>::iterator iter = nodes[root]->suc.begin(); iter != nodes[root]->suc.end();iter++){
+            if (*iter < pr->nbINodes){
+                tab[*iter]=cc;
+                cc++;
+            }
+            nodes_new[*iter]->P = root;
+        }
+        for (int i=root+1;i<pr->nbINodes;i++){
+            if ((abs(nodes_new[i]->B) > toCollapse && (!useSupport || support[i] > pr->support)) || nodes[i]->P==root){
+                for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
+                    int s=*iter;
+                    if (s<pr->nbINodes && (abs(nodes[s]->B) <= toCollapse  || (useSupport && support[s]<= pr->support))) {
+                        tab[s]=-1;
+                        collapse(i, s,  pr, nodes, nodes_new,cc,tab, toCollapse, useSupport,  support);
+                    }
+                    else {
+                        nodes_new[s]->P=i;
+                        if (s<pr->nbINodes) {
+                            tab[s]=cc;
+                            cc++;
+                        }
+                    }
                 }
-                else {
-                    nodes_new[s]->P=i;
-                    if (s<pr->nbINodes) {
-                        tab[s]=cc;
-                        cc++;
+            }
+        }
+    } else {
+        for (int i=root;i<pr->nbINodes;i++){
+            if ((abs(nodes_new[i]->B) > toCollapse && (!useSupport || support[i] > pr->support)) || i==root){
+                for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
+                    int s=*iter;
+                    if (s<pr->nbINodes && (abs(nodes[s]->B) <= toCollapse  || (useSupport && support[s]<= pr->support))) {
+                        tab[s]=-1;
+                        collapse(i, s,  pr, nodes, nodes_new,cc,tab, toCollapse, useSupport,  support);
+                    }
+                    else {
+                        nodes_new[s]->P=i;
+                        if (s<pr->nbINodes) {
+                            tab[s]=cc;
+                            cc++;
+                        }
                     }
                 }
             }

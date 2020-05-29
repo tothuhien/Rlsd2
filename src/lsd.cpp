@@ -67,24 +67,17 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
         Node** nodes;
         e = tree2data(*(io->inTree),opt,s,nodes);
         if (e==EXIT_FAILURE) return e;
-        if (!opt->relative) {
-            io->inDate->seekg(0);//BQM: set the stream position to 0 to read the same date file for each tree in the tree set
-            e = readDateFile(*io->inDate, opt,nodes,constraintConsistent);
-            if (e==EXIT_FAILURE) return e;
+        e = readInputDate(io, opt,nodes,constraintConsistent);
+        if (e==EXIT_FAILURE) return e;
+        if (!constraintConsistent){
+          ostringstream oss;
+          oss<<"- There's conflict in the input temporal constraints.\n";
+          opt->warningMessage.push_back(oss.str());
         }
         computeSuc_polytomy(opt,nodes);
         collapseUnInformativeBranches(opt,nodes);
         if (!opt->rooted){
             nodes = unrooted2rooted(opt,nodes);
-        }
-        if (opt->relative){
-            for (int i=0;i<opt->nbINodes;i++) nodes[i]->removeConstraint();
-            for (int i=opt->nbINodes;i<=opt->nbBranches;i++){
-                nodes[i]->newPConstraint('p',opt->leaves);
-            }
-            Date* dateRoot = new Date("", 'p',opt->mrca,0,0);
-            opt->internalConstraints.clear();
-            opt->internalConstraints.push_back(dateRoot);
         }
         if (y==1){
             *(io->outTree1)<<"Begin trees;\n";
@@ -200,7 +193,7 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                             rho.push_back(opt->rho);
                         }
                         else{
-                            cout<<"*WARNING: There's conflict in the input temporal constraints."<<endl;
+                            cout<<"There's conflict or not enough signal in the input temporal constraints."<<endl;
                         }
                     }
                     else if (opt->estimate_root=="k"){
@@ -221,7 +214,7 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                             mrca.push_back(nodes[0]->D);
                             rho.push_back(opt->rho);
                         } else {
-                            cout<<"*WARNING: There's conflict in the input temporal constraints."<<endl;
+                            cout<<"There's conflict or not enough signal in the input temporal constraints."<<endl;
                         }
                     }
                     else{//estimate the root
@@ -256,10 +249,10 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                         delete[] nodes_new;
                     }
                 } else {
-                    cout<<"*WARNING: There's conflict in the input temporal constraints."<<endl;
+                    cout<<"There's conflict or not enough signal in the input temporal constraints."<<endl;
                 }
             } else {
-                cout<<"*WARNING: There's conflict in the input temporal constraints."<<endl;
+                cout<<"There's conflict or not enough signal in the input temporal constraints."<<endl;
             }
         }
         for (int i=0;i<=opt->nbBranches;i++) delete nodes[i];
@@ -275,22 +268,22 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
 extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP outFile, SEXP outGroup,
                      SEXP givenRate, SEXP seqLen, SEXP constraint , SEXP variance ,
                      SEXP confidenceIntervalSampling , SEXP rhoMin , SEXP estimate_root , SEXP b ,
-                     SEXP q , SEXP mrca , SEXP leaves , SEXP verbose , SEXP keepOutgroup ,
+                     SEXP q , SEXP rootDate , SEXP tipsDate , SEXP verbose , SEXP keepOutgroup ,
                      SEXP nullblen , SEXP support ,  SEXP minblen ,SEXP  minblenL ,
                      SEXP roundTime, SEXP outDateFormat ,SEXP m ,SEXP e, SEXP nbData){
     int argc = 1;
     vector<char*> options;
     char* s;
-    if (asLogical(constraint)){
-        options.push_back((char*)"-c");
+    if (!asLogical(constraint)){
+        options.push_back((char*)"-F");
         argc++;
     }
     if (asLogical(verbose)){
         options.push_back((char*)"-j");
         argc++;
     }
-    if (asLogical(keepOutgroup)){
-        options.push_back((char*)"-k");
+    if (!asLogical(keepOutgroup)){
+        options.push_back((char*)"-G");
         argc++;
     }
     if (TYPEOF(inputDate) == STRSXP && STRING_PTR(inputDate)[0]!=NA_STRING){
@@ -393,21 +386,33 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
         options.push_back(s);
         argc = argc+2;
     }
-    if (TYPEOF(mrca) == REALSXP && !ISNA(REAL(mrca)[0])){
-        double A = asReal(mrca);
+    if (TYPEOF(rootDate) == REALSXP && !ISNA(REAL(rootDate)[0])){ 
+      options.push_back((char*)"-a");
+      double A = asReal(rootDate);
+      s = new char[size_t(abs(A))+1];
+      sprintf(s, "%e", A);
+      options.push_back(s);
+      argc = argc+2;
+    } else if (TYPEOF(rootDate) == STRSXP){
         options.push_back((char*)"-a");
-        s = new char[size_t(abs(A))+1];
-        sprintf(s, "%e", A);
+        s = (char*)CHAR(STRING_PTR(rootDate)[0]);
         options.push_back(s);
         argc = argc+2;
     }
-    if (TYPEOF(leaves) == REALSXP && !ISNA(REAL(leaves)[0])){
-        double Z = asReal(leaves);
-        options.push_back((char*)"-z");
-        s = new char[size_t(abs(Z))+1];
-        sprintf(s, "%e", Z);
-        options.push_back(s);
-        argc = argc+2;
+    if (TYPEOF(tipsDate) == REALSXP && !ISNA(REAL(tipsDate)[0])){ 
+      options.push_back((char*)"-z");
+      double Z = asReal(tipsDate);
+      s = new char[size_t(abs(Z))+1];
+      sprintf(s, "%e", Z);
+      options.push_back(s);
+      argc = argc+2;
+      options.push_back(s);
+      argc = argc+2;
+    } else if (TYPEOF(tipsDate) == STRSXP){
+      options.push_back((char*)"-z");
+      s = (char*)CHAR(STRING_PTR(tipsDate)[0]);
+      options.push_back(s);
+      argc = argc+2;
     }
     if (TYPEOF(roundTime) == REALSXP && !ISNA(REAL(roundTime)[0])){
         double ROUND_TIME = asReal(roundTime);
@@ -453,22 +458,22 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
     for (int i = 11; i<argc;i++){
         argv[i] = options[i-11];
     }
-    /*for (int i=0;i<options.size();i++){
-      cout<<options[i]<<endl;
+    /*for (int i=0;i<argc;i++){
+      cout<<argv[i]<<endl;
     }*/
     Pr* opt = getOptions( argc, argv);
     if (opt==NULL){
         return R_NilValue;
     }
     vector<double> rates;
-    vector<double> rootDate;
-    int r = lsd2(opt,rates,rootDate);
+    vector<double> rMRCA;
+    int r = lsd2(opt,rates,rMRCA);
     if (r==EXIT_SUCCESS){
         SEXP rho = PROTECT(allocVector(REALSXP, rates.size()));
-        SEXP root = PROTECT(allocVector(REALSXP, rootDate.size()));
+        SEXP root = PROTECT(allocVector(REALSXP, rMRCA.size()));
         for (int i=0;i<rates.size();i++){
             REAL(rho)[i] = rates[i];
-            REAL(root)[i] = rootDate[i];
+            REAL(root)[i] = rMRCA[i];
         }
         SEXP res = PROTECT(allocVector(VECSXP, 2));
         SET_VECTOR_ELT(res, 0, rho);

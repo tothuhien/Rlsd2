@@ -9,7 +9,7 @@ bool calculateOutliers(Pr* & pr,Node** & nodes,double & median_rate){
         oss<<"- Rate partition can not be included in estimating outliers.\n";
         pr->warningMessage.push_back(oss.str());
     }
-    cout<<"Calculating the outlier nodes with Zscore threshold "<<pr->e<<" (settable via option Zscore) ..."<<endl;
+    cout<<"Calculating the outlier nodes with Zscore threshold "<<pr->e<<" (setable via option -e)..."<<endl;
     if (pr->estimate_root=="" || pr->estimate_root=="k"){
         bool givenRate = pr->givenRate[0];
         vector<double> dates_min;
@@ -78,7 +78,6 @@ bool calculateOutliers(Pr* & pr,Node** & nodes,double & median_rate){
         if (pr->estimate_root==""){
             bool consistent;
             pr->outlier = outliers_rooted(pr,nodes,samples,dates_min,dates_max,false,both,median_rate,consistent);
-            cout<<"median rate "<<median_rate<<endl;
             pr->givenRate[0] = givenRate;
             delete[] samples;
             if (!consistent){
@@ -98,6 +97,7 @@ bool calculateOutliers(Pr* & pr,Node** & nodes,double & median_rate){
             nodes[s1]->B = 0;
             nodes[s2]->B = br;
             vector<int> outliers1 = outliers_rooted(pr,nodes,samples,dates_min,dates_max,false,both,median_rate1,consistent1);
+            pr->givenRate[0] = givenRate;
             nodes[s1]->B = br;
             nodes[s2]->B = 0;
             vector<int> outliers2 = outliers_rooted(pr,nodes,samples,dates_min,dates_max,false,both,median_rate2,consistent2);
@@ -122,20 +122,20 @@ bool calculateOutliers(Pr* & pr,Node** & nodes,double & median_rate){
         }
         if (pr->outlier.size()>0){
             std::ostringstream oss;
-            oss<<"- The input dates associated with the following "<<pr->outlier.size()<<" nodes are considered as outliers, so the nodes were removed from the analysis: ";
+            oss<<"- The input dates associated with the following "<<pr->outlier.size()<<" nodes are considered as\n outliers, so the nodes were removed from the analysis:\n";
             for (int i=0;i<pr->outlier.size();i++){
-                if (pr->outlier[i] >= pr->nbINodes){
-                    oss<<" "<<(nodes[pr->outlier[i]]->L).c_str();
-                } else {
-                    oss<<" "<<pr->internalConstraints[pr->outlier[i]]->label;
-                }
+                //if (pr->outlier[i] >= pr->nbINodes){
+                oss<<" "<<(nodes[pr->outlier[i]]->L).c_str();
+                //} else {
+                //    oss<<" "<<pr->internalConstraints[pr->outlier[i]]->label;
+                //}
             }
             oss<<"\n";
             pr->resultMessage.push_back(oss.str());
             bool bl = remove_outlier_nodes(pr,nodes);
             if (!bl) {
                 std::ostringstream oss;
-                oss<<"- Removing outliers make the initial root lost. If you don't want that, you can try to reroot the tree or increase the Zscore threshold in option to exclude some outliers.\n"<<endl;
+                oss<<"- Removing outliers make the initial root lost. If you don't want that, you can\n try to reroot the tree or increase the Zscore threshold in option -e to exclude\n some outliers.\n"<<endl;
                 pr->warningMessage.push_back(oss.str());
             }
             
@@ -151,13 +151,13 @@ bool calculateOutliers(Pr* & pr,Node** & nodes,double & median_rate){
         if (bl){
             if (pr->outlier.size()>0){
                 std::ostringstream oss;
-                oss<<"- The input dates associated with the following "<<pr->outlier.size()<<" nodes are considered as outliers, so the nodes were excluded from the analysis: ";
+                oss<<"- The input dates associated with the following "<<pr->outlier.size()<<" nodes are considered as\n outliers, so the nodes were excluded from the analysis:\n";
                 for (int i=0;i<pr->outlier.size();i++){
-                    if (pr->outlier[i] >= pr->nbINodes){
-                        oss<<" "<<(nodes[pr->outlier[i]]->L).c_str();
-                    } else {
-                        oss<<" "<<pr->internalConstraints[pr->outlier[i]]->label;
-                    }
+                    //if (pr->outlier[i] >= pr->nbINodes){
+                    oss<<" "<<(nodes[pr->outlier[i]]->L).c_str();
+                    //} else {
+                    //    oss<<" "<<pr->internalConstraints[pr->outlier[i]]->label;
+                    //}
                 }
                 oss<<"\n";
                 pr->resultMessage.push_back(oss.str());
@@ -169,9 +169,9 @@ bool calculateOutliers(Pr* & pr,Node** & nodes,double & median_rate){
                 pr->resultMessage.push_back(oss.str());
             }
         } else {
-            cout<<"Ignore estimating outliers: the temporal constraints provided are not enough, or conflict."<<endl;
+            cout<<"Ignore estimating outliers: the temporal constraints are not enough or conflict."<<endl;
             std::ostringstream oss;
-            oss<<"- Ignore estimating outliers: the temporal constraints provided are not enough, or conflict.\n";
+            oss<<"- Ignore estimating outliers: the temporal constraints are not enough or conflict.\n";
             pr->warningMessage.push_back(oss.str());
             return false;
         }
@@ -345,14 +345,14 @@ bool remove_outlier_nodes(Pr* &pr,Node** &nodes){
     for (int i=0;i<=pr->nbBranches;i++) tab[i] = i;
     bool keepRoot = true;
     int i=0;
-    int shift = 0;
+    //int shift = 0;
     while (i<pr->outlier.size()){
-        if (pr->outlier[i] >= pr->nbINodes){
-            keepRoot = remove_one_tip(pr,nodes,pr->outlier[i],tab) && keepRoot;
-        } else {//ignored the input date of the node
-            pr->internalConstraints.erase(pr->internalConstraints.begin()+pr->outlier[i] - shift);
-            shift++;
-        }
+        //if (pr->outlier[i] >= pr->nbINodes){
+        keepRoot = remove_one_tip(pr,nodes,pr->outlier[i],tab) && keepRoot;
+        //} else {//ignored the input date of the node
+        //    pr->internalConstraints.erase(pr->internalConstraints.begin()+pr->outlier[i] - shift);
+        //    shift++;
+        //}
         i++;
     }
     shift_node_id(pr,nodes,tab);
@@ -595,23 +595,23 @@ vector<int> outliers_rooted(Pr* pr,Node** nodes,vector<int>* samples, vector<dou
             }
         }
     }
-    for (int k=0;k<pr->internalConstraints.size();k++){
-        Date* no = pr->internalConstraints[k];
-        int i = no->id;
-        if ((!pr->relative || i!=0) && (nodes[i]->type == 'p' || nodes[i]->type == 'b')){
-                bool bl = false;
-                if (i>0){
-                    bl = (abs(res[i-1])>pr->e);
-                }
-                for (int j=0;j<nodes[i]->suc.size();j++){
-                    int s = nodes[i]->suc[j];
-                    bl = bl || (abs(res[s-1])>pr->e);
-                }
-                if (bl){
-                    outliers_min.push_back(k);
-                }
-        }
-    }
+    /*for (int k=0;k<pr->internalConstraints.size();k++){
+     Date* no = pr->internalConstraints[k];
+     int i = no->id;
+     if ((!pr->relative || i!=0) && (nodes[i]->type == 'p' || nodes[i]->type == 'b')){
+     bool bl = false;
+     if (i>0){
+     bl = (abs(res[i-1])>pr->e);
+     }
+     for (int j=0;j<nodes[i]->suc.size();j++){
+     int s = nodes[i]->suc[j];
+     bl = bl || (abs(res[s-1])>pr->e);
+     }
+     if (bl){
+     outliers_min.push_back(k);
+     }
+     }
+    }*/
     if (!both) return outliers_min;
     else {
         pr->rho = rate_max;
@@ -630,23 +630,23 @@ vector<int> outliers_rooted(Pr* pr,Node** nodes,vector<int>* samples, vector<dou
                 }
             }
         }
-        for (int k=0;k<pr->internalConstraints.size();k++){
-            Date* no = pr->internalConstraints[k];
-            int i = no->id;
-            if (nodes[i]->type == 'p' || nodes[i]->type == 'b'){
-                bool bl = false;
-                if (i>0){
-                    bl = (abs(res[i-1])>pr->e);
-                }
-                for (int j=0;j<nodes[i]->suc.size();j++){
-                    int s = nodes[i]->suc[j];
-                    bl = bl || (abs(res[s-1])>pr->e);
-                }
-                if (bl){
-                    outliers_max.push_back(k);
-                }
-            }
-        }
+        /*for (int k=0;k<pr->internalConstraints.size();k++){
+         Date* no = pr->internalConstraints[k];
+         int i = no->id;
+         if (nodes[i]->type == 'p' || nodes[i]->type == 'b'){
+         bool bl = false;
+         if (i>0){
+         bl = (abs(res[i-1])>pr->e);
+         }
+         for (int j=0;j<nodes[i]->suc.size();j++){
+         int s = nodes[i]->suc[j];
+         bl = bl || (abs(res[s-1])>pr->e);
+         }
+         if (bl){
+         outliers_max.push_back(k);
+         }
+         }
+        }*/
         return intersect(outliers_min,outliers_max);
     }
 }
@@ -694,9 +694,9 @@ bool outliers_unrooted(Pr* &pr,Node** &nodes,double& median_rate){
         if (m > (index.size()-1)){
             m = index.size()-1;
             if (m<2){
-                cout<<"Ignore estimating outliers: the temporal constraints provided are not enough, or conflict."<<endl;
+                cout<<"Ignore estimating outliers: the temporal constraints are not enough or conflict."<<endl;
                 std::ostringstream oss;
-                oss<<"- Ignore estimating outliers: the temporal constraints provided are not enough, or conflict.\n";
+                oss<<"- Ignore estimating outliers: the temporal constraints are not enough or conflict.\n";
                 pr->warningMessage.push_back(oss.str());
                 return false;
             }
@@ -912,7 +912,7 @@ bool calculateMedianRate(Pr* pr,Node** nodes,double& med_rate){
             double mrate;
             bool consistent;
             if (!both) {
-                 consistent = median_rate(pr,nodes_new,originalD_min,samples,true, mrate);
+                consistent = median_rate(pr,nodes_new,originalD_min,samples,true, mrate);
             } else {
                 consistent = median_rate(pr,nodes_new,originalD_min,originalD_max, samples,true, rate_min, rate_max);
                 mrate = (rate_min+rate_max)/2;
