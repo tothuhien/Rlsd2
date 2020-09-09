@@ -23,22 +23,25 @@ InputOutputStream::InputOutputStream () {
     inDate = nullptr;
     inRate = nullptr;
     inPartition = nullptr;
+    inBootstrapTree = nullptr;
     outResult = nullptr;
     outTree1 = nullptr;
     outTree2 = nullptr;
     outTree3 = nullptr;
 }
 
-InputOutputStream::InputOutputStream(string tree, string outgroup, string date, string rate, string partition) {
+InputOutputStream::InputOutputStream(string tree, string outgroup, string date, string rate, string partition, string bootstrap) {
     inTree = nullptr;
     inOutgroup = nullptr;
     inDate = nullptr;
     inPartition = nullptr;
+    inBootstrapTree = nullptr;
     setTree(tree);
     setOutgroup(outgroup);
     setDate(date);
     setRate(rate);
     setPartition(partition);
+    setBootstrapTree(bootstrap);
     outResult = new ostringstream;
     outTree1 = new ostringstream;
     outTree2 = new ostringstream;
@@ -65,6 +68,10 @@ InputOutputStream::~InputOutputStream() {
     if (inPartition) {
         delete inPartition;
         inPartition = nullptr;
+    }
+    if (inBootstrapTree) {
+      delete inBootstrapTree;
+      inBootstrapTree = nullptr;
     }
     if (outResult) {
         delete outResult;
@@ -106,6 +113,14 @@ void InputOutputStream::setDate(string str) {
     inDate = new istringstream(str);
 }
 
+void InputOutputStream::setBootstrapTree(string str) {
+  if (str.empty())
+    return;
+  if (inBootstrapTree)
+    delete inBootstrapTree;
+  inBootstrapTree = new istringstream(str);
+}
+
 void InputOutputStream::setRate(string str) {
     if (str.empty())
         return;
@@ -124,6 +139,7 @@ void InputOutputStream::setPartition(string str) {
 
 InputOutputFile::InputOutputFile(Pr *opt,bool& allIsOK) : InputOutputStream() {
     treeIsFile = true;
+    bootstrapTreeIsFile = true;
     // open the tree file
     ifstream *tree_file = new ifstream(opt->inFile);
     inTree = tree_file;
@@ -166,9 +182,19 @@ InputOutputFile::InputOutputFile(Pr *opt,bool& allIsOK) : InputOutputStream() {
         ifstream *part_file = new ifstream(opt->partitionFile);
         inPartition = part_file;
         if (!part_file->is_open()) {
-            cerr << "Error: cannot open date file " << opt->partitionFile << endl;
+            cerr << "Error: cannot open partition file " << opt->partitionFile << endl;
             allIsOK = false;
         }
+    }
+    
+    // open bootstrap tree file
+    if (opt->bootstraps_file != "") {
+      ifstream *bootstrap_file = new ifstream(opt->bootstraps_file);
+      inBootstrapTree = bootstrap_file;
+      if (!bootstrap_file->is_open()) {
+        cerr << "Error: cannot open bootstrap file " << opt->bootstraps_file << endl;
+        exit(EXIT_FAILURE);
+      }
     }
     
     // open the result file
@@ -217,6 +243,9 @@ InputOutputFile::~InputOutputFile() {
     if (inPartition) {
         ((ifstream*)inPartition)->close();
     }
+    if (inBootstrapTree && bootstrapTreeIsFile) {
+      ((ifstream*)inBootstrapTree)->close();
+    }
     if (outResult) {
         ((ofstream*)outResult)->close();
     }
@@ -241,6 +270,18 @@ void InputOutputFile::setTree(string str) {
     // change tree to stringstream
     treeIsFile = false;
     inTree = new istringstream(str);
+}
+
+void InputOutputFile::setBootstrapTree(string str) {
+  if (inBootstrapTree) {
+    if (bootstrapTreeIsFile) {
+      ((ifstream*)inBootstrapTree)->close();
+    }
+    delete inBootstrapTree;
+  }
+  // change tree to stringstream
+  bootstrapTreeIsFile = false;
+  inBootstrapTree = new istringstream(str);
 }
 
 int readWord(istream& f,string fn,string & s){
@@ -1573,6 +1614,7 @@ Node** cloneLeaves(Pr* pr,Node** nodes,int f){
         nodes_new[i+f]->upper=nodes[i]->upper;
         nodes_new[i+f]->D=nodes[i]->D;
         nodes_new[i+f]->status=nodes[i]->status;
+        nodes_new[i+f]->minblen=nodes[i]->minblen;
     }
     return nodes_new;
 }
@@ -1582,6 +1624,7 @@ void cloneInternalNodes(Pr* pr,Node** nodes,Node** &nodes_new,int f){
         nodes_new[i+f]->P=nodes[i]->P+f;
         nodes_new[i+f]->B=nodes[i]->B;
         nodes_new[i+f]->L=nodes[i]->L;
+        nodes_new[i+f]->minblen=nodes[i]->minblen;
         nodes_new[i+f]->suc.clear();
         for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
             nodes_new[i+f]->suc.push_back((*iter)+f);
@@ -1912,8 +1955,6 @@ string nexusDate(int i,Pr* pr,Node** nodes){
         }
         if (i>0) {
             return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"]:"+b.str();
-            //if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"]:"+b.str();
-            //else return newLabel+")"+nodes[i]->L+":"+b.str();
         }
         else{
             return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\"];\n";
@@ -1949,7 +1990,7 @@ string nexusIC(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double* H_m
         hmin<< H_min[i];
         hmax<< H_max[i];
         if (i>=pr->nbINodes) {
-            return nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
+          return nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date=\"{"+dmin.str()+","+dmax.str()+"}\"]:"+b.str();
         }
         else{
             string newLabel="(";
@@ -1960,12 +2001,10 @@ string nexusIC(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double* H_m
                 else newLabel+=","+l;
             }
             if (i>0) {
-                return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
-                //if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
-                //else return newLabel+")"+nodes[i]->L+":"+b.str();
+              return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date=\"{"+dmin.str()+","+dmax.str()+"}\"]:"+b.str();
             }
             else{
-                return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}];\n";
+              return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date=\"{"+dmin.str()+","+dmax.str()+"}\"];\n";
             }
             
         }
@@ -1973,61 +2012,57 @@ string nexusIC(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double* H_m
 }
 
 string nexusICDate(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double* H_min,double* H_max){
-    ostringstream b,date;
-    if (i>0){
-        b<< (nodes[i]->D - nodes[nodes[i]->P]->D) ;
-    }
+  ostringstream b,date;
+  if (i>0){
+    b<< (nodes[i]->D - nodes[nodes[i]->P]->D) ;
+  }
+  if (pr->outDateFormat==2){
+    date<<realToYearMonthDay(nodes[i]->D);
+  } else if (pr->outDateFormat==3){
+    date<<realToYearMonth(nodes[i]->D);
+  } else{
+    date<<nodes[i]->D;
+  }
+  if (i>=pr->nbINodes && nodes[i]->type=='p') return nodes[i]->L+"[&date="+date.str()+"]:"+b.str();
+  else{
+    ostringstream hmin,hmax,dmin,dmax;
     if (pr->outDateFormat==2){
-        date<<realToYearMonthDay(nodes[i]->D);
+      dmin<< realToYearMonthDay(D_min[i]);
+      dmax<< realToYearMonthDay(D_max[i]);
     } else if (pr->outDateFormat==3){
-        date<<realToYearMonth(nodes[i]->D);
+      dmin<< realToYearMonth(D_min[i]);
+      dmax<< realToYearMonth(D_max[i]);
     } else{
-        date<<nodes[i]->D;
+      dmin<< D_min[i];
+      dmax<< D_max[i];
     }
-    if (i>=pr->nbINodes && nodes[i]->type=='p') return nodes[i]->L+"[&date="+date.str()+"]:"+b.str();
+    hmin<< H_min[i];
+    hmax<< H_max[i];
+    if (i>=pr->nbINodes) {
+      return nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
+    }
     else{
-        ostringstream hmin,hmax,dmin,dmax;
-        if (pr->outDateFormat==2){
-            dmin<< realToYearMonthDay(D_min[i]);
-            dmax<< realToYearMonthDay(D_max[i]);
-        } else if (pr->outDateFormat==3){
-            dmin<< realToYearMonth(D_min[i]);
-            dmax<< realToYearMonth(D_max[i]);
-        } else{
-            dmin<< D_min[i];
-            dmax<< D_max[i];
-        }
-        hmin<< H_min[i];
-        hmax<< H_max[i];
-        if (i>=pr->nbINodes) {
-            return nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
-        }
-        else{
-            string newLabel="(";
-            for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
-                int s = *iter;
-                string l=nexusICDate(s,pr,nodes,D_min,D_max,H_min,H_max);
-                if (iter==nodes[i]->suc.begin()) newLabel+=l;
-                else newLabel+=","+l;
-            }
-            if (i>0) {
-                return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
-                //if (abs(nodes[i]->B)>0) return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
-                //else return newLabel+")"+nodes[i]->L+":"+b.str();
-            }
-            else{
-                return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}];\n";
-            }
-            
-        }
+      string newLabel="(";
+      for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
+        int s = *iter;
+        string l=nexusICDate(s,pr,nodes,D_min,D_max,H_min,H_max);
+        if (iter==nodes[i]->suc.begin()) newLabel+=l;
+        else newLabel+=","+l;
+      }
+      if (i>0) {
+        return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
+      }
+      else{
+        return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}];\n";
+      }
     }
+  }
 }
 
 double* variance(int w,int m,double* B,int c,int s){
     double* V = new double[m+1];
     if (w==1 || w==2){
         for (int i=1;i<=m;i++){
-            //V[i]=(B[i]+c/(c+s))/(c+s);
             V[i]=(B[i]+(double)c/s)/s;
         }
     }
@@ -2071,9 +2106,6 @@ void initialize_status(Pr* &pr,Node** &nodes){
         if (nodes[i]->type=='p') nodes[i]->status=8;
         else nodes[i]->status=0;
     }
-    for (int i=0;i<pr->outlier.size();i++){
-        nodes[pr->outlier[i]]->status=0;
-    }
 }
 
 list<int> getActiveSet(Pr* pr,Node** nodes){
@@ -2085,14 +2117,15 @@ list<int> getActiveSet(Pr* pr,Node** nodes){
     return active_set;
 }
 
-/*void computeSuc_polytomy(Pr* pr,Node** nodes){
-    for (int i=0;i<pr->nbINodes;i++){
-        nodes[i]->suc.clear();
-    }
-    for (int i=1;i<=pr->nbBranches;i++){
-        nodes[nodes[i]->P]->suc.push_back(i);
-    }
-}*/
+bool checkTopology(Pr* pr,Node** nodes1, Node** nodes2){
+  for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
+    if (nodes1[i]->L != nodes2[i]->L) return false;
+  }
+  for (int i=1;i<=pr->nbBranches;i++){
+    if (nodes1[i]->P != nodes2[i]->P) return false;
+  }
+  return true;
+}
 
 void computeSuc_polytomy(Pr* pr,Node** nodes){
     int root = (int)(!pr->rooted);
@@ -2587,7 +2620,7 @@ void calculate_tree_height(Pr* pr,Node** & nodes){
     }
 }
 
-void plitExternalBranches(Pr* pr,Node** nodes){
+void splitExternalBranches(Pr* pr,Node** nodes){
     pr->ratePartition.clear();
     Part* part = new Part("externalBranches");
     for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
@@ -2659,83 +2692,6 @@ double median(vector<double> array){
     }
 }
 
-
-void imposeMinBlen(ostream& file,Pr* pr, Node** nodes, double median_rate,bool medianRateOK){
-    double minblen = pr->minblen;
-    double round_time = pr->round_time;
-    double m = 1./(pr->seqLength*median_rate);
-    if (round_time <0){
-        if (pr->inDateFormat == 2 || pr->inDateFormat == 1){
-            round_time = 365;
-        } else {
-            if (m>=1) round_time = 100;
-            else {
-                round_time = 10;
-                double mm = m;
-                while (mm<1){
-                    mm = mm*10;
-                    round_time = round_time*10;
-                }
-            }
-        }
-    }
-    string unit="";
-    if (round_time==365) unit=" days";
-    if (round_time==52) unit=" weeks";
-    if (medianRateOK && pr->minblen<0){
-        if (pr->inDateFile!="" || pr->inDateFormat==2 || pr->round_time!=-1){
-            minblen = round(round_time*m)/(double)round_time;
-            if (pr->minblenL < 0){
-                cout<<"Minimum branch length of time scaled tree (settable via option minblen and minblenL): "<<m<<", rounded to "<<minblen<<" ("<<round(round_time*m)<<unit<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option roundTime)"<<endl;
-                file<<"Minimum branch length of time scaled tree (settable via option minblen and minblenL): "<<m<<", rounded to "<<minblen<<" ("<<round(round_time*m)<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option roundTime)\n";
-            } else {
-                cout<<"Minimum internal branches lengths of time scaled tree (settable via option minblen): "<<m<<", rounded to "<<minblen<<" ("<<round(round_time*m)<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option roundTime)"<<endl;
-                cout<<"Minimum external branches lengths of time scaled tree was set to "<<pr->minblenL<<" (settable via option minblenL)"<<endl;
-                file<<"Minimum internal branches lengths of time scaled tree (settable via option minblen): "<<m<<", rounded to "<<minblen<<" ("<<round(round_time*m)<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option roundTime)\n";
-                file<<"Minimum external branches lengths of time scaled tree was set to "<<pr->minblenL<<" (settable via option minblenL)"<<endl;
-            }
-        }
-        else {
-            minblen = m;
-            if (pr->minblenL < 0){
-                cout<<"Minimum branch length of time scaled tree (settable via option minblen and minblenL): "<<m<<endl;
-                file<<"Minimum branch length of time scaled tree (settable via option minblen and minblenL): "<<m<<"\n";
-            } else {
-                cout<<"Minimum internal branches lengths of time scaled tree (settable via option minblen): "<<m<<endl;
-                cout<<"Minimum external branches lengths of time scaled tree was set to "<<pr->minblenL<<" (settable via option minblenL)"<<endl;
-                file<<"Minimum internal branches lengths of time scaled tree (settable via option minblen): "<<m<<"\n";
-                file<<"Minimum external branches lengths of time scaled tree was set to "<<pr->minblenL<<" (settable via option minblenL)"<<endl;
-            }
-        }
-    } else if (!medianRateOK && pr->minblen<0){
-        cout<<"Can not estimate minimum branch lengths for time scaled tree: the temporal constraints provided are not enough, or conflict."<<endl;
-        cout<<"Minimum branch length is then set to 0 (settable via option minblen and minblenL)."<<endl;
-        std::ostringstream oss;
-        oss<<"- Can not estimate minimum branch lengths for time scaled tree: the temporal constraints provided are not enough, or conflict. Minimum branch length is then set to 0.\n";
-        pr->warningMessage.push_back(oss.str());
-        minblen = 0;
-        
-    } else{
-        if (pr->minblen < 0) minblen = 0;
-        if (pr->minblenL <0){
-            cout<<"Minimum branch length of time scaled tree was set to "<<minblen<<" (settable via option minblen and minblenL)"<<endl;
-        } else {
-            cout<<"Minimum internal branches lengths of time scaled tree was set to "<<minblen<<" (settable via option minblen)"<<endl;
-            cout<<"Minimum external branches lengths of time scaled tree was set to "<<pr->minblenL<<" (settable via option minblenL)"<<endl;
-        }
-    }
-    nodes[0]->minblen = minblen;
-    double minblenL = minblen;
-    if (pr->minblenL >= 0) minblenL = pr->minblenL;
-    for (int i=1;i<=pr->nbBranches;i++){
-        if (i<pr->nbINodes) {
-            nodes[i]->minblen = minblen;
-        } else{
-            nodes[i]->minblen = minblenL;
-        }
-    }
-}
-
 int median_branch_lengths(Pr* pr,Node** nodes,double& m){
     vector<double> bl;
     for (int i=1;i<=pr->nbBranches;i++){
@@ -2801,8 +2757,7 @@ int collapseTree(Pr* pr,Node** nodes,Node** nodes_new,int* &tab, double toCollap
             nodes_new[i]->rateGroup = nodes[i]->rateGroup;
         }
     }
-    int cc=0;//number of internal nodes reduced
-    cc++;
+    int cc = root+1;//number of internal nodes reduced
     tab[root]=root;
     if (pr->removeOutgroup == false && pr->fnOutgroup!=""){
         for (vector<int>::iterator iter = nodes[root]->suc.begin(); iter != nodes[root]->suc.end();iter++){
@@ -2902,11 +2857,15 @@ void collapseUnInformativeBranches(Pr* &pr,Node** &nodes){
     int* tab = new int[pr->nbBranches+1];
     bool useSupport = (pr->support>=0);
     int nbC = collapseTree(pr, nodes, nodes_new,tab, pr->nullblen,useSupport);//nbC is the number of internal nodes reduced
-    if (!useSupport) cout<<"Collapse "<<(pr->nbINodes - (!pr->rooted) - nbC)<<" (over "<<(pr->nbINodes - (!pr->rooted))<<") internal branches having branch length <= "<<pr->nullblen<<" (settable via option nullblen)"<<endl;
-    else cout<<"Collapse "<<(pr->nbINodes - nbC)<<" internal branches having branch length <= "<<pr->nullblen<<" (settable via option nullblen) or support value <= "<<pr->support<<" (settable via option support)"<<endl;
-    if (  (double)(pr->nbINodes - nbC)/pr->nbINodes > 0.1){
+    if (!useSupport) {
+      cout<<"Collapse "<<(pr->nbINodes - nbC)<<" (over "<<(pr->nbINodes - (!pr->rooted) -1 )<<") internal branches having branch length <= "<<pr->nullblen<<"\n (settable via option -l)"<<endl;
+    }
+    else {
+      cout<<"Collapse "<<(pr->nbINodes - nbC)<<" (over "<<(pr->nbINodes - (!pr->rooted) -1 )<<") internal branches having branch length <= "<<pr->nullblen<<"\n (settable via option -l) or support value <= "<<pr->support<<"\n (settable via option -S)"<<endl;
+    }
+    if (  (double)(pr->nbINodes - nbC)/(pr->nbINodes - (!pr->rooted) -1) > 0.1){
         ostringstream oss;
-        oss<<"- "<<(pr->nbINodes - (!pr->rooted) - nbC)*100/(double)pr->nbINodes<<"% internal branches were collapsed.\n";
+        oss<<"- "<<(pr->nbINodes - nbC)*100/(double)(pr->nbINodes - (!pr->rooted) -1)<<"% internal branches were collapsed.\n";
         pr->warningMessage.push_back(oss.str());
     }
     Node** nodesReduced = new Node*[nbC+pr->nbBranches-pr->nbINodes+1];

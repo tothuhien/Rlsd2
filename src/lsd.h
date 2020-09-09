@@ -29,6 +29,9 @@ public:
     /** input partition stream */
     istream *inPartition;
     
+    /** input bootstrap tree stream */
+    istream *inBootstrapTree;
+    
     /** output result stream */
     ostream *outResult;
     
@@ -51,7 +54,7 @@ public:
      @param date date string
      
      */
-    InputOutputStream(string tree, string outgroup, string date, string rate, string partition);
+    InputOutputStream(string tree, string outgroup, string date, string rate, string partition, string bootstrap);
 
     /** destructor */
     virtual ~InputOutputStream();
@@ -86,6 +89,12 @@ public:
      @param str a string
      */
     virtual void setPartition(string str);
+    
+    /**
+     set the content of the bootstrap tree stream
+    @param str a string
+    */
+    virtual void setBootstrapTree(string str);
 };
 
 /**

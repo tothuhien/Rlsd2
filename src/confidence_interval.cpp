@@ -37,7 +37,6 @@ void computeIC(double br,Pr* pr,Node** nodes,double* &T_left,double* &T_right,do
         B_simul[i]=new double[prReduced->nbBranches+1];
     }
     std::default_random_engine generator;
-    
     double minB=nodesReduced[1]->B;
     for (int i=2;i<=prReduced->nbBranches;i++){
         if (nodesReduced[i]->B<minB && nodesReduced[i]->B>0) {
@@ -169,15 +168,170 @@ void computeIC(double br,Pr* pr,Node** nodes,double* &T_left,double* &T_right,do
     delete[] HD_simul;
 }
 
-void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostream& tree2,ostream& tree3){
-    if (pr->outlier.size()>0){
-        std::ostringstream oss;
-        oss<<"- There are "<<pr->outlier.size()<<" nodes that are considered as outliers and were excluded from the analysis:\n";
-        for (int i=0;i<pr->outlier.size();i++){
-            oss<<"    "<<nodes[pr->outlier[i]]->L<<", suggesting date "<<nodes[pr->outlier[i]]->D<<"\n";
-        }
-        pr->resultMessage.push_back(oss.str());
+int computeIC_bootstraps(InputOutputStream *io, Pr* pr,Node** nodes,double* &T_left,double* &T_right,double* &H_left,double* &H_right,double* &HD_left,double* &HD_right,double &rho_left,double& rho_right,double* &other_rhos_left,double* &other_rhos_right,int r){
+  int lineNb=getLineNumber(*(io->inBootstrapTree));
+  pr->nbBootstrap = lineNb;
+  double** T_bootstrap = new double*[pr->nbBootstrap];
+  double** H_bootstrap = new double*[pr->nbBootstrap];
+  double** HD_bootstrap = new double*[pr->nbBootstrap];
+  double* rho_bootstrap = new double[pr->nbBootstrap];
+  double** other_rhos_bootstrap  = new double*[pr->nbBootstrap];
+  double* minblen = new double[pr->nbBranches+1];
+  for (int i=0; i<= pr->nbBranches; i++){
+    minblen[i] = nodes[i]->minblen;
+  }
+  int original_nbInodes = pr->nbINodes;
+  int original_nbBranches = pr->nbBranches;
+  double original_objective = pr->objective;
+  int s = 0;
+  if (io->inOutgroup){
+    extrait_outgroup(io, pr, true);
+  }
+  bool constraintConsistent=true;
+  int e;
+  for (int y = 0; y< pr->nbBootstrap; y++){
+    pr->internalConstraints.clear();
+    Node** nodes_bootstrap;
+    e = tree2data(*(io->inBootstrapTree),pr,s,nodes_bootstrap);
+    if (e==EXIT_FAILURE) return e;
+    readInputDate(io, pr,nodes_bootstrap,constraintConsistent);
+    computeSuc_polytomy(pr,nodes_bootstrap);
+    double br=0;
+    if (!pr->rooted){
+      nodes_bootstrap = unrooted2rooted(pr,nodes_bootstrap);
+      Node** nodes_new = cloneLeaves(pr,nodes_bootstrap,0);
+      vector<int>::iterator iter=nodes_bootstrap[0]->suc.begin();
+      int s1=(*iter);
+      iter++;
+      int s2=(*iter);
+      for (int i=pr->nbINodes; i<=pr->nbBranches; i++) {
+        nodes_new[i]->status=nodes_bootstrap[i]->status;
+      }
+      reroot_rootedtree(br,r,s1,s2,pr,nodes_bootstrap,nodes_new);
+      nodes_bootstrap = nodes_new;
+      nodes_bootstrap[s1]->V=variance(pr,br);
+      nodes_bootstrap[s2]->V=nodes_bootstrap[s1]->V;
+      for (int i=0;i<=pr->nbBranches;i++) delete nodes_new[i];
+      delete[] nodes_new;
     }
+    if (pr->c == -1){
+       double mbl;
+       e = median_branch_lengths(pr,nodes_bootstrap,mbl);
+       if (e==EXIT_FAILURE) return e;
+       pr->b = max(mbl,10./pr->seqLength);
+    } else {
+      pr->b = pr->c;
+    }
+    if (pr->ratePartition.size()>0) assignRateGroupToTree(pr,nodes_bootstrap);
+    computeVariance(pr,nodes_bootstrap);
+    if (pr->splitExternal) splitExternalBranches(pr,nodes_bootstrap);
+    initConstraint(pr, nodes_bootstrap);
+    if (pr->e>0) remove_outlier_nodes(pr,nodes_bootstrap);
+    if ((original_nbInodes != pr->nbINodes) || (original_nbBranches != pr->nbBranches) || !checkTopology(pr,nodes,nodes_bootstrap)){
+      cout<<"The bootstrap tree "<<y+1<<" does not have the same topology as the original tree"<<endl;
+      return EXIT_FAILURE;
+    }
+    if (!pr->constraint){//LD without constraints
+      if (pr->estimate_root==""){
+        without_constraint_multirates(pr,nodes_bootstrap,true);
+      }
+      else {
+        without_constraint_active_set_lambda_multirates(br,pr,nodes_bootstrap,true);
+      }
+    } else {//QPD with temporal constrains
+      for (int i=0; i<= pr->nbBranches;i++){
+        nodes_bootstrap[i]->minblen = minblen[i];
+      }
+      if (pr->estimate_root==""){
+        with_constraint_multirates(pr,nodes_bootstrap,true);
+      }
+      else {
+        with_constraint_active_set_lambda_multirates(br,pr,nodes_bootstrap,true);
+      }
+    }
+    if (pr->verbose){
+      cout<<"Tree "<<y+1<<" rate: "<<pr->rho<<", rMRCA: "<<nodes_bootstrap[0]->D<<endl;
+    }
+    T_bootstrap[y] = new double[pr->nbBranches+1];
+    H_bootstrap[y] = new double[pr->nbBranches+1];
+    HD_bootstrap[y] = new double[pr->nbBranches+1];
+    calculate_tree_height(pr,nodes_bootstrap);
+    for (int i=0;i<=pr->nbBranches;i++){
+      T_bootstrap[y][i] = nodes_bootstrap[i]->D;
+      H_bootstrap[y][i] = nodes_bootstrap[i]->H;
+      HD_bootstrap[y][i] = nodes_bootstrap[i]->HD;
+    }
+    rho_bootstrap[y] = pr->rho;
+    other_rhos_bootstrap[y] = new double[pr->ratePartition.size()];
+    for (int g=1; g<=pr->ratePartition.size(); g++) {
+      other_rhos_bootstrap[y][g-1] = pr->rho*pr->multiplierRate[g];
+    }
+    for (int i=0;i<=pr->nbBranches;i++) delete nodes_bootstrap[i];
+    delete[] nodes_bootstrap;
+  }
+  pr->objective = original_objective;
+  sort(rho_bootstrap,pr->nbBootstrap);
+  rho_left=rho_bootstrap[int(0.025*pr->nbBootstrap)];
+  rho_right=rho_bootstrap[pr->nbSampling-int(0.025*pr->nbBootstrap)-1];
+  if (pr->rho<rho_left) rho_left=pr->rho;
+  if (pr->rho>rho_right) rho_right=pr->rho;
+  double* T_sort = new double[pr->nbBootstrap];
+  double* H_sort = new double[pr->nbBootstrap];
+  double* HD_sort = new double[pr->nbBootstrap];
+  for (int i=0;i<=pr->nbBranches;i++){
+    for (int j=0;j<pr->nbBootstrap;j++) {
+      T_sort[j]=T_bootstrap[j][i];
+      H_sort[j]=H_bootstrap[j][i];
+      HD_sort[j]=HD_bootstrap[j][i];
+    }
+    sort(T_sort,pr->nbBootstrap);
+    sort(H_sort,pr->nbBootstrap);
+    sort(HD_sort,pr->nbBootstrap);
+    
+    T_left[i]=T_sort[int(0.025*pr->nbBootstrap)];
+    if (T_left[i]>nodes[i]->D) T_left[i]=nodes[i]->D;
+    T_right[i]=T_sort[pr->nbBootstrap-int(0.025*pr->nbBootstrap)-1];
+    if (T_right[i]<nodes[i]->D) T_right[i]=nodes[i]->D;
+    
+    H_left[i]=H_sort[int(0.025*pr->nbBootstrap)];
+    if (H_left[i]>nodes[i]->H) H_left[i]=nodes[i]->H;
+    H_right[i]=H_sort[pr->nbBootstrap-int(0.025*pr->nbBootstrap)-1];
+    if (H_right[i]<nodes[i]->H) H_right[i]=nodes[i]->H;
+    
+    HD_left[i]=HD_sort[int(0.025*pr->nbBootstrap)];
+    if (HD_left[i]>nodes[i]->HD) HD_left[i]=nodes[i]->HD;
+    HD_right[i]=HD_sort[pr->nbBootstrap-int(0.025*pr->nbBootstrap)-1];
+    if (HD_right[i]<nodes[i]->HD) HD_right[i]=nodes[i]->HD;
+  }
+  double* other_rhos_bootstrap_sort = new double[pr->nbBootstrap];
+  for (int g=1;g<=pr->ratePartition.size();g++){
+    for (int r=0;r<pr->nbBootstrap;r++) {
+      other_rhos_bootstrap_sort[r]=other_rhos_bootstrap[r][g-1];
+    }
+    sort(other_rhos_bootstrap_sort,pr->nbBootstrap);
+    other_rhos_left[g]=other_rhos_bootstrap_sort[int(0.025*pr->nbBootstrap)];
+    if (other_rhos_left[g]>pr->rho*pr->multiplierRate[g]) other_rhos_left[g]=pr->rho*pr->multiplierRate[g];
+    other_rhos_right[g]=other_rhos_bootstrap_sort[pr->nbBootstrap-int(0.025*pr->nbSampling)-1];
+    if (other_rhos_right[g]<pr->rho*pr->multiplierRate[g]) other_rhos_right[g]=pr->rho*pr->multiplierRate[g];
+  }
+  delete[] rho_bootstrap;
+  delete[] T_sort;
+  delete[] H_sort;
+  delete[] HD_sort;
+  delete[] other_rhos_bootstrap_sort;
+  delete[] other_rhos_bootstrap;
+  for (int i=0;i<pr->nbBootstrap;i++){
+    delete[] T_bootstrap[i];
+    delete[] H_bootstrap[i];
+    delete[] HD_bootstrap[i];
+  }
+  delete[] T_bootstrap;
+  delete[] H_bootstrap;
+  delete[] HD_bootstrap;
+  return EXIT_SUCCESS;
+}
+
+int output(double br,int y, InputOutputStream *io, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostream& tree2,ostream& tree3,int r){
     if (!pr->constraint && pr->ci) {
         std::ostringstream oss;
         oss<<"- Confidence intervals are not warranted under non-constraint mode.\n";
@@ -194,7 +348,7 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
     if (pr->ratePartition.size()==0) {
         std::ostringstream oss;
         oss<<"- Dating results:\n";
-        oss<<" rate "<<pr->rho<<", tMRCA "<<tMRCA.str()<<"\n";
+        oss<<" rate "<<pr->rho<<", tMRCA "<<tMRCA.str()<<" , objective function "<<pr->objective<<"\n";
         pr->resultMessage.push_back(oss.str());
     }
     else{
@@ -313,9 +467,14 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
         double rho_left,rho_right;
         double* other_rhos_left = new double[pr->ratePartition.size()+1];
         double* other_rhos_right = new double[pr->ratePartition.size()+1];
-        cout<<"Computing confidence intervals using sequence length "<<pr->seqLength<<" and a lognormal relaxed clock with mean 1, standard deviation "<<pr->q<<" (settable via option q)"<<endl;
-        computeIC(br,pr,nodes,T_min,T_max,H_min,H_max,HD_min,HD_max,rho_left,rho_right,other_rhos_left,other_rhos_right);
-        
+        if (pr->bootstraps_file==""){
+          cout<<"Computing confidence intervals using sequence length "<<pr->seqLength<<" and a lognormal\n relaxed clock with mean 1, standard deviation "<<pr->q<<" (settable via option -q)"<<endl;
+          computeIC(br,pr,nodes,T_min,T_max,H_min,H_max,HD_min,HD_max,rho_left,rho_right,other_rhos_left,other_rhos_right);
+        } else {
+          cout<<"Computing confidence intervals using input bootstrap trees ..."<<endl;
+          int e = computeIC_bootstraps(io,pr,nodes,T_min,T_max,H_min,H_max,HD_min,HD_max,rho_left,rho_right,other_rhos_left,other_rhos_right,r);
+          if (e==EXIT_FAILURE) return e;
+        }
         std::ostringstream oss;
         oss<<"- Results with confidence intervals:\n";
         pr->resultMessage.push_back(oss.str());
@@ -333,6 +492,7 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
             tmin<<T_min[0];
             tmax<<T_max[0];
         }
+
         if (pr->ratePartition.size()==0) {
             std::ostringstream oss;
             oss<<" rate "<<pr->rho<<" ["<<rho_left<<"; "<<rho_right<<"], tMRCA "<<tMRCA.str()<<" ["<<tmin.str()<<"; "<<tmax.str()<<"]\n";
@@ -349,16 +509,14 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
             oss<<"tMRCA "<<tMRCA.str()<<" ["<<tmin.str()<<"; "<<tmax.str()<<"]\n";
             pr->resultMessage.push_back(oss.str());
         }
-        
         delete[] other_rhos_left;
         delete[] other_rhos_right;
-        
         tree1<<"tree "<<y<<" = ";
         tree2<<"tree "<<y<<" = ";
         tree1<<nexusIC(0,pr,nodes,T_min,T_max,H_min,H_max).c_str();
-        tree2<<nexusICDate(0,pr,nodes,T_min,T_max,HD_min,HD_max).c_str();int n=0;
+        tree2<<nexusICDate(0,pr,nodes,T_min,T_max,HD_min,HD_max).c_str();
+        int n=0;
         tree3<<newick(0,0,pr,nodes,n).c_str();
-        
         delete[] T_min;
         delete[] T_max;
         delete[] H_min;
@@ -386,5 +544,5 @@ void output(double br,int y, Pr* pr,Node** nodes,ostream& f,ostream& tree1,ostre
         f<<string(pr->resultMessage[i]).c_str();
         cout<<string(pr->resultMessage[i]).c_str();
     }
-
+    return EXIT_SUCCESS;
 }

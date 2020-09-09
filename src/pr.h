@@ -15,6 +15,7 @@ typedef struct Pr
     string  inFile;         //Nom du fichier d'arbres
     string  inDateFile;     //Nom du fichier contenant les dates
     string partitionFile;   //Nom du fichier contenant la partition des arretes pour different taux
+    string bootstraps_file; //Name of the file containing bootstrap trees
     string  outFile;        //Nom du fichier de resultats.
     string treeFile1;       //Nom du fichier d'abres sorties Nexus
     string treeFile2;       //Nom du fichier d'arbres sorties Nexus avec des longueurs de branches mesures par des temps ecoules
@@ -25,7 +26,8 @@ typedef struct Pr
     double leaves;
     string LEAVES;
     int    seqLength;      //Longueur des sequences dans l'alignement
-    int    nbData;         //Nombre de cas a  traiter (dans le cas de bootstrap)
+    int    nbData;         //Nombre de cas a  traiter
+    int    nbBootstrap;     //Number of bootstrap trees
     string fnOutgroup;
     string rate;           //le fichier contient les taux en entree
     string estimate_root;    //Method to estimate root
@@ -55,6 +57,7 @@ typedef struct Pr
     bool removeOutgroup;
     int m;
     double e;
+    bool splitExternal;
     vector<Part* > ratePartition;
     vector<Date*> internalConstraints;
     vector<int> outlier;
@@ -70,21 +73,25 @@ typedef struct Pr
         if (fnOutgroup != "" ) rooted = true;
         warningMessage.clear();
         resultMessage.clear();
+        outlier.clear();
     }
     void copy(Pr* pr){
         inFile = pr->inFile;
         inDateFile = pr->inDateFile;
         partitionFile = pr->partitionFile;
+        bootstraps_file = pr->bootstraps_file;
+        fnOutgroup = pr->fnOutgroup;
         outFile = pr->outFile;
         treeFile1 = pr->treeFile1;
         treeFile2 = pr->treeFile2;
-        //relative=pr->relative;
+        outlier = pr->outlier;
         mrca=pr->mrca;
         MRCA=pr->MRCA;
         leaves=pr->leaves;
         LEAVES=pr->LEAVES;
         seqLength=pr->seqLength; 
         nbData=pr->nbData;
+        nbBootstrap = pr->nbBootstrap;
         rate=pr->rate;
         estimate_root = pr->estimate_root;
         rooted=pr->rooted;
@@ -102,6 +109,7 @@ typedef struct Pr
         minblenL=pr->minblenL;
         nullblen=pr->nullblen;
         verbose=pr->verbose;
+        splitExternal=pr->splitExternal;
         inDateFormat=pr->inDateFormat;
         outDateFormat=pr->outDateFormat;
         rho=pr->rho;
@@ -130,8 +138,10 @@ typedef struct Pr
         treeFile1 = "";
         treeFile2 = "";
         fnOutgroup = "";
+        bootstraps_file = "";
         seqLength = 1000;
         nbData = 1;
+        nbBootstrap = 0;
         rate = "";
         //relative = false;
         mrca=0;
@@ -141,8 +151,8 @@ typedef struct Pr
         estimate_root = "";
         constraint = true;
         variance = 1;
-        minblen = -1;
-        minblenL = -1;
+        minblen = 0;
+        minblenL = 0;
         nullblen = 0;
         support = -1;
         c = -1;
@@ -156,6 +166,7 @@ typedef struct Pr
         outDateFormat=0;
         rooted=false;
         removeOutgroup=false;
+        splitExternal=false;
         ratePartition = vector<Part* >();
         internalConstraints = vector<Date* >();
         outlier = vector<int>();

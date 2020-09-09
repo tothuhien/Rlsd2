@@ -43,7 +43,7 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
     if (!allIsOK) return EXIT_FAILURE;
     printInterface(*(io->outResult), opt);
     if (io->inOutgroup){
-        extrait_outgroup(io, opt);
+        extrait_outgroup(io, opt, false);
     }
     *(io->outTree1)<<"#NEXUS\n";
     *(io->outTree2)<<"#NEXUS\n";
@@ -75,7 +75,15 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
           opt->warningMessage.push_back(oss.str());
         }
         computeSuc_polytomy(opt,nodes);
-        collapseUnInformativeBranches(opt,nodes);
+        double minB = nodes[1]->B;
+        if (opt->minblen < 0){
+          for (int i=2; i <= opt->nbBranches; i++){
+            if (nodes[i]->B < minB) minB = nodes[i]->B;
+          }
+        }
+        if (opt->bootstraps_file==""){
+          collapseUnInformativeBranches(opt,nodes);
+        }
         if (!opt->rooted){
             nodes = unrooted2rooted(opt,nodes);
         }
@@ -97,6 +105,7 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
         }
         computeVariance(opt,nodes);
         double br=0;
+        int r=0;
         if (opt->givenRate[0]){
             string line;
             if( getline(*(io->inRate), line)) {
@@ -117,11 +126,9 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                 opt->givenRate[0] = false;
             }
         }
-        constraintConsistent = initConstraint(opt, nodes);
-        bool medianRateOK = true;
-        if (opt->e>0) medianRateOK = calculateOutliers(opt,nodes,median_rate);
-        else if (opt->minblen<0) medianRateOK = calculateMedianRate(opt,nodes,median_rate);
-        imposeMinBlen(*(io->outResult),opt,nodes,median_rate,medianRateOK);
+        if (opt->splitExternal) splitExternalBranches(opt,nodes);
+        if (opt->estimate_root=="" || opt->estimate_root=="k") constraintConsistent = initConstraint(opt, nodes);
+        if (opt->e>0) calculateOutliers(opt,nodes,median_rate);
         if (!opt->constraint){//LD without constraints
             if (!constraintConsistent){
                 ostringstream oss;
@@ -131,12 +138,13 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
             if (opt->estimate_root==""){//keep the given root
                 cout<<"Dating without temporal constraints ..."<<endl;
                 without_constraint_multirates(opt,nodes,true);
-                output(br,y,opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3));
+                e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                if (e==EXIT_FAILURE) return e;
                 rho.push_back(opt->rho);
                 mrca.push_back(nodes[0]->D);
             }
             else if (opt->estimate_root=="k"){
-                cout<<"Estimating the root position on the branch defined by given root ..."<<endl;
+                cout<<"Estimating the root position on the branch defined by given outgroups ..."<<endl;
                 double br=0;
                 vector<int>::iterator iter=nodes[0]->suc.begin();
                 int s1=(*iter);
@@ -146,12 +154,12 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                 nodes[s1]->V=variance(opt,br);
                 nodes[s2]->V=nodes[s1]->V;
                 without_constraint_active_set_lambda_multirates(br,opt,nodes,true);
-                output(br,y,opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3));
+                e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                if (e==EXIT_FAILURE) return e;
                 mrca.push_back(nodes[0]->D);
                 rho.push_back(opt->rho);
             }
             else{//estimate the root
-                int r;
                 if (opt->estimate_root.compare("l")==0){//improve locally the root around the given root
                     cout<<"Estimating the root position locally around the given root ..."<<endl;
                     r=estimate_root_without_constraint_local_rooted(opt,nodes);
@@ -171,7 +179,8 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                     }
                     reroot_rootedtree(br,r,s1,s2,opt,nodes,nodes_new);
                     without_constraint_active_set_lambda_multirates(br,opt,nodes_new,true);
-                    output(br,y,opt,nodes_new,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3));
+                    e = output(br,y,io, opt,nodes_new,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                    if (e==EXIT_FAILURE) return e;
                     mrca.push_back(nodes_new[0]->D);
                     rho.push_back(opt->rho);
                     for (int i=0;i<opt->nbBranches+1;i++) delete nodes_new[i];
@@ -180,6 +189,7 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
             }
         }
         else {//QPD with temporal constrains
+            imposeMinBlen(*(io->outResult),opt,nodes,minB);
             if (constraintConsistent || (opt->estimate_root!="" && opt->estimate_root!="k")){
                 if (constraintConsistent){
                     if (opt->estimate_root==""){//keep the given root
@@ -188,7 +198,8 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                             constraintConsistent = with_constraint_multirates(opt,nodes,true);
                         }
                         if (constraintConsistent) {
-                            output(br,y,opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3));
+                            e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                            if (e==EXIT_FAILURE) return e;
                             mrca.push_back(nodes[0]->D);
                             rho.push_back(opt->rho);
                         }
@@ -210,7 +221,8 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                             constraintConsistent = with_constraint_active_set_lambda_multirates(br,opt,nodes,true);
                         }
                         if (constraintConsistent) {
-                            output(br,y,opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3));
+                            e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                            if (e==EXIT_FAILURE) return e;
                             mrca.push_back(nodes[0]->D);
                             rho.push_back(opt->rho);
                         } else {
@@ -218,7 +230,6 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                         }
                     }
                     else{//estimate the root
-                        int r;
                         if (opt->estimate_root.compare("l")==0){//improve locally the root around the given root
                             cout<<"Estimating the root position locally around the given root ..."<<endl;
                             r=estimate_root_with_constraint_local_rooted(opt,nodes);
@@ -242,7 +253,8 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                         }
                         reroot_rootedtree(br,r,s1,s2,opt,nodes,nodes_new);
                         with_constraint_active_set_lambda_multirates(br,opt,nodes_new,true);
-                        output(br,y,opt,nodes_new,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3));
+                        e = output(br,y,io, opt,nodes_new,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                        if (e==EXIT_FAILURE) return e;
                         mrca.push_back(nodes_new[0]->D);
                         rho.push_back(opt->rho);
                         for (int i=0;i<opt->nbBranches+1;i++) delete nodes_new[i];
@@ -267,7 +279,7 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
 
 extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP outFile, SEXP outGroup,
                      SEXP givenRate, SEXP seqLen, SEXP constraint , SEXP variance ,
-                     SEXP confidenceIntervalSampling , SEXP rhoMin , SEXP estimate_root , SEXP b ,
+                     SEXP confidenceInterval , SEXP splitInternalExternalBranches, SEXP rhoMin , SEXP estimate_root , SEXP b ,
                      SEXP q , SEXP rootDate , SEXP tipsDate , SEXP verbose , SEXP keepOutgroup ,
                      SEXP nullblen , SEXP support ,  SEXP minblen ,SEXP  minblenL ,
                      SEXP roundTime, SEXP outDateFormat ,SEXP m ,SEXP e, SEXP nbData){
@@ -362,13 +374,22 @@ extern "C" SEXP Rlsd2(SEXP inputTree, SEXP inputDate, SEXP partitionFile, SEXP o
         options.push_back(s);
         argc = argc+2;
     }
-    if (INTEGER(confidenceIntervalSampling)[0]!=NA_INTEGER){
-        int NBS = asInteger(confidenceIntervalSampling);
+    if (TYPEOF(confidenceInterval) == STRSXP && STRING_PTR(confidenceInterval)[0]!=NA_STRING){
+      s = (char*)CHAR(STRING_PTR(confidenceInterval)[0]);
+      options.push_back((char*)"-f");
+      options.push_back(s);
+      argc = argc + 2;
+    } else if (INTEGER(confidenceInterval)[0]!=NA_INTEGER){
+        int NBS = asInteger(confidenceInterval);
         options.push_back((char*)"-f");
         s = new char[size_t(abs(NBS))+1];
         sprintf(s, "%d", NBS);
         options.push_back(s);
         argc = argc+2;
+    } 
+    if (asLogical(splitInternalExternalBranches)){
+        options.push_back((char*)"-E");
+        argc++;
     }
     if (INTEGER(outDateFormat)[0]!=NA_INTEGER){
         int D = asInteger(outDateFormat);

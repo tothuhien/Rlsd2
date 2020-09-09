@@ -14,7 +14,8 @@ lsd2(
   givenRate = NA,
   constraint = TRUE,
   variance = 1,
-  confidenceIntervalSampling = NA,
+  confidenceInterval = NA,
+  splitInternalExternalBranches = FALSE,
   minRate = 1e-10,
   estimateRoot = NA,
   b = NA,
@@ -45,15 +46,20 @@ lsd2(
 
 \item{outFile}{the basename of the output files, if NA then lsd2 will generate temporary files within working folder.}
 
-\item{outGroup}{either the file contain the outgroups, or a vector of outgroup names. The tree will be rooted based on the specified outgroups. Note that the outgroups must form a monophyletic in the input tree.}
+\item{outGroup}{either the file contains the outgroups, or a vector of outgroup names. The tree will be rooted based on the specified outgroups. Note that the outgroups must form a monophyletic in the input tree.}
 
-\item{givenRate}{either the file contain the given rates, or a vector of given rates, each rate corresponds to a tree in the input tree(s)}
+\item{givenRate}{either the file contains the given rates, or a vector of given rates, each rate corresponds to a tree in the input tree(s)}
 
 \item{constraint}{if TRUE then temporal constraints is imposed}
 
 \item{variance}{apply variances for branche lengths. Either 0, or 1, or 2 which respectively means without variance, run lsd2 once with variances, and run lsd2 twice with variances where the second time variances are based on the estimated branch length of the first run.}
 
-\item{confidenceIntervalSampling}{if specified, then will compute the confidence intervals. This is the number of bootstrap to generate simulated trees for calculing confidence intervals. The confidence interval date of each node is reported in the nexus outfile.}
+\item{confidenceInterval}{if specified, then will compute the confidence intervals. 
+This can be either the number of bootstraps to generate simulated trees for calculing confidence intervals or a file contains the bootstrap trees or a list of bootstrap trees. 
+Note that those bootstrap trees have to have exactly the same topology as the input tree(s).
+The confidence interval date of each node is reported in the nexus outfile.}
+
+\item{splitInternalExternalBranches}{whether to estimate the rate of internal and external branches separately. False by default.}
 
 \item{minRate}{the minimum threshold for rate}
 
@@ -61,7 +67,7 @@ lsd2(
 
 \item{b}{the parameter to adjust variance, estimate by default}
 
-\item{q}{the standard deviation of lognormal distribution to apply on branch lengths when calculating confidence intervals.}
+\item{q}{the standard deviation of lognormal distribution to apply on branch lengths when calculating confidence intervals. 0.2 by default.}
 
 \item{rootDate}{the date of the root.}
 
@@ -75,9 +81,12 @@ lsd2(
 
 \item{support}{if the tree containts support value and you want to collapse all branches having small support value, then you can specify the thresold of support here.}
 
-\item{minblen}{the minimum length for internal branches of the output time-scaled tree. Estimate by default, and rounded the a meaningful unit (for example date, week, year ...) using `roundTime` parameter.}
+\item{minblen}{the minimum length for internal branches of the output time-scaled tree. 
+Can be either a positive real, or the letter "e" for letting the program to estimate this value.
+minblen is rounded to a meaningful unit (for example date, week, year ...) using `roundTime` parameter.
+0 by default.}
 
-\item{minblenL}{the minimum length for external branches of the output time-scaled tree. Estimate by default, and rounded the a meaningful unit (for example date, week, year ...) using `roundTime` parameter.}
+\item{minblenL}{the minimum length for external branches of the output time-scaled tree. Similar to minblen.}
 
 \item{roundTime}{the factor to round the time of minblen and minblenL. By default, factor 365 rounds the minblen to number of days.}
 

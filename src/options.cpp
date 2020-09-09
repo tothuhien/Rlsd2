@@ -22,7 +22,7 @@ Pr* getOptions( int argc, char** argv )
 
 Pr* getCommandLine( int argc, char** argv)
 {
-    const string VERSION="v.1.8";
+    const string VERSION="v.1.8.8";
     Pr* opt = new Pr();
     int c;
     string s;
@@ -33,11 +33,12 @@ Pr* getCommandLine( int argc, char** argv)
         sflag=false,
         fflag=false,
         uflag=false,
+        Uflag=false,
         vflag=false,
         lflag=false,
         validDate = true;
     optind = 1;
-    while ( (c = getopt(argc, argv, ":i:d:D:o:s:n:g:r:v:Ft:w:b:ha:z:f:Gje:m:p:q:u:l:U:R:S:V")) != -1 )
+    while ( (c = getopt(argc, argv, ":i:d:D:o:s:n:g:r:v:Ft:w:b:ha:z:f:Gje:m:p:q:u:l:U:R:S:EV")) != -1 )
     {
         switch (c)
         {
@@ -217,42 +218,57 @@ Pr* getCommandLine( int argc, char** argv)
             opt->verbose = true;
             break;
         case 'f':
-            if( !isInteger(optarg) ){
-                myExit("Argument of option confidenceIntervalSampling must be the number of samplings to compute confidence\n intervals, e.g. 100 ...\n");
-                return NULL;
+          if ( !isInteger(optarg) ){
+            if( access( optarg, R_OK )!=0 ){
+              myExit( "Argument of option -f must be an integer or a file containing bootstraps trees\n" );
+              return NULL;
             }
+            opt->bootstraps_file = optarg;
+          } else{
             opt->nbSampling = atoi( optarg );
-            if (opt->nbSampling<0){
-                myExit("Argument of option confidenceIntervalSampling must be a positive integer.\n");
-                return NULL;
+            if (opt->nbSampling <= 0){
+              myExit("Argument of option -f must be a positive integer.\n");
+              return NULL;
             }
             fflag = true;
-            opt->ci=true;
-            break;
+          }
+          opt->ci=true;
+          break;
         case 'u':
-            if ( !isReal(optarg)){
-                myExit("Argument of option minblen must be a real\n");
-                return NULL;
+          if ( !isReal(optarg)){
+            if (!strcmp(optarg,"e")){
+              opt->minblen = -1;
+              uflag = true;
+            } else {
+              myExit("Argument of option -u must be a real or letter e\n");
+              return NULL;
             }
+          } else{
             opt->minblen = atof(optarg);
-            if (opt->minblen<0){
-                myExit("Argument of option minblen must be >= 0\n");
-                return NULL;
+            if (opt->minblen <0){
+              myExit("Argument of option -u must be >= 0\n");
+              return NULL;
             }
-            uflag = true;
-            break;
+          }
+          break;
         case 'U':
-            if ( !isReal(optarg)){
-                myExit("Argument of option minblenL must be a real\n");
-                return NULL;
+          if ( !isReal(optarg)){
+            if (!strcmp(optarg,"e")){
+              opt->minblenL = -1;
+              uflag = true;
+            } else {
+              myExit("Argument of option -U must be a real or letter e\n");
+              return NULL;
             }
+          } else{
             opt->minblenL = atof(optarg);
-            if (opt->minblenL<0){
-                myExit("Argument of option minblenL must be >= 0\n");
-                return NULL;
+            Uflag = true;
+            if (opt->minblenL <0){
+              myExit("Argument of option -U must be >= 0\n");
+              return NULL;
             }
-            uflag = true;
-            break;
+          }
+          break;
         case 'l':
             if ( !isReal(optarg)){
                 myExit("Argument of option nullblen must be a real\n");
@@ -268,7 +284,7 @@ Pr* getCommandLine( int argc, char** argv)
             }
             opt->round_time = atof(optarg);
             if (opt->round_time<=0){
-                myExit("Argument of option roundTime must be positive\n");
+                myExit("Argument of option roundTime must be non negative\n");
                 return NULL;
             }
             break;
@@ -283,13 +299,16 @@ Pr* getCommandLine( int argc, char** argv)
                 return NULL;
             }
             break;
+        case 'E':
+          opt->splitExternal = true;
+          break;
         }
     }
     if( !(iflag) ){
         myExit("Argument inputTree is necessary to continue.\n");
         return NULL;
     }
-    if ( !(sflag) && (fflag || !uflag || !lflag || vflag)){
+    if ( !(sflag) && (fflag || uflag || !lflag || vflag)){
         myExit("Argument seqLen is necessary to continue.\n");
     }
     if (!dflag && !flagA && !flagZ){
@@ -308,6 +327,9 @@ Pr* getCommandLine( int argc, char** argv)
     if (!lflag){
         opt->nullblen = 0.5/opt->seqLength;
     }
+    if (opt->minblen < 0 && !Uflag){
+      opt->minblenL = -1;
+    }
     if (!opt->constraint && opt->estimate_root.compare("as")==0){
         cout<<"The non constrained mode is chosen, so the 'as' method for rooting function is the same as the 'a' method."<<endl;
         opt->estimate_root="a";
@@ -324,136 +346,154 @@ Pr* getCommandLine( int argc, char** argv)
 
 void printInterface(ostream& in, Pr* opt)
 {
-    const string VERSION = "v.1.8";
-    
-    in<<"\nLEAST-SQUARE METHODS TO ESTIMATE RATES AND DATES - "<<VERSION<<" \n\n";
-    in<<"\nInput files:\n";
-    in<<"  i                                               Input tree file : "<<opt->inFile.c_str()<<"\n";
-    if (opt->MRCA!=""){
-        in<<"  a                                                     Root date : "<<opt->MRCA.c_str()<<"\n";
-    }
-    if (opt->LEAVES!=""){
-        in<<"  z                                                     Tips date : "<<opt->LEAVES.c_str()<<"\n";
-    }
-    if (opt->inDateFile!=""){
-        in<<"  d                                               Input date file : "<<opt->inDateFile.c_str()<<"\n";
-    }
-    in<<"  p                                                Partition file : ";
-    if (opt->partitionFile=="")        in<<"No\n";
-    else in<<opt->partitionFile.c_str()<<"\n";
-    in<<"Output file:\n";
-    in<<"  o                                                  Output file  : "<<opt->outFile.c_str()<<"\n";
-    in<<"Parameters:\n";
-    in<<"  c                                              With constraints : ";
-    if (!opt->constraint) in<<"No\n";
-    else {
-        in<<"Yes\n";
-    }
-    in<<"  t                                      Lower bound for the rate : "<<opt->rho_min<<"\n";
-    in<<"  v                                                With variances : ";
-    if (opt->variance==0) in<<"No\n";
-    else {
-        if (opt->variance==1) in<<"Yes, use variances based on input branch lengths\n";
-        else if (opt->variance==2) in<<"Yes, use variances based on estimated branch lengths\n";
-        in<<"  b                              Adjusted parameter for variances : ";
-        if (opt->c==-1){
-            in<<"To estimate\n";
-        } else{
-            in<<opt->c<<"\n";
-        }
-    }
-    in<<"  r                                             Estimate the root : ";
-    if (opt->estimate_root=="k"){
-        in<<"On the branch given by the outgroups\n";
-    }
-    else if (opt->estimate_root.compare("l")==0){
-        in<<"Around the given root\n";
-    }
-    else if (opt->estimate_root.compare("a")==0 && opt->constraint){
-        in<<"Use fast method to search on all branches\n";
-    }
-    else if (opt->estimate_root.compare("a")==0 && !opt->constraint){
-        in<<"Search on all branches\n";
-    }
-    else if (opt->estimate_root.compare("as")==0){
-        in<<"Use constrained mode on all branches\n";
+  const string VERSION = "v.1.8.8";
+  
+  in<<"\nLEAST-SQUARE METHODS TO ESTIMATE RATES AND DATES - "<<VERSION<<" \n\n";
+  in<<"\nInput files:\n";
+  in<<"  i                                               Input tree file : "<<opt->inFile.c_str()<<"\n";
+  in<<"  d                                               Input date file : ";
+  if (opt->inDateFile!=""){
+    in<<opt->inDateFile.c_str()<<"\n";
+  } else {
+    in<<"No\n";
+  }
+  in<<"  p                                                Partition file : ";
+  if (opt->partitionFile=="")        in<<"No\n";
+  else in<<opt->partitionFile.c_str()<<"\n";
+  if (opt->fnOutgroup=="")
+    in<<"  g                                               Given outgroups : No\n";
+  else {
+    in<<"  g                                       File contains outgroups : "<<opt->fnOutgroup.c_str()<<"\n";
+    if (opt->removeOutgroup) {
+      in<<"  G                       Remove outgroups in the estimating tree : Yes\n";
     }
     else{
-        in<<"No\n";
+      in<<"  G                       Remove outgroups in the estimating tree : No\n";
     }
-    in<<"  w                                       Given substitution rate : ";
-    if (opt->rate=="") in<<"No\n";
-    else in<<opt->rate.c_str()<<"\n";
-    if (opt->fnOutgroup=="")
-        in<<"  g                                               Given outgroups : No\n";
-    else {
-        in<<"  g                                       File contains outgroups : "<<opt->fnOutgroup.c_str()<<"\n";
-        if (opt->removeOutgroup) {
-            in<<"  G                       Remove outgroups in the estimating tree : Yes\n";
-        }
-        else{
-            in<<"  G                       Remove outgroups in the estimating tree : No\n";
-        }
+  }
+  in<<"Output file:\n";
+  in<<"  o                                                  Output file  : "<<opt->outFile.c_str()<<"\n";
+  in<<"Parameters:\n";
+  in<<"  a                                                     Root date : ";
+  if (opt->MRCA!=""){
+    in<<opt->MRCA.c_str()<<"\n";
+  } else {
+    in<<"No\n";
+  }
+  in<<"  z                                                     Tips date : ";
+  if (opt->LEAVES!=""){
+    in<<opt->LEAVES.c_str()<<"\n";
+  } else {
+    in<<"No\n";
+  }
+  in<<"  c                                              With constraints : ";
+  if (!opt->constraint) in<<"No\n";
+  else {
+    in<<"Yes\n";
+  }
+  in<<"  t                                      Lower bound for the rate : "<<opt->rho_min<<"\n";
+  in<<"  v                                                With variances : ";
+  if (opt->variance==0) in<<"No\n";
+  else {
+    if (opt->variance==1) in<<"Yes, use variances based on input branch lengths\n";
+    else if (opt->variance==2) in<<"Yes, use variances based on estimated branch lengths\n";
+    in<<"  b                              Adjusted parameter for variances : ";
+    if (opt->c==-1){
+      in<<"To estimate\n";
+    } else{
+      in<<opt->c<<"\n";
     }
-    in<<"  n                                             Multiple data set : ";
-    if( opt->nbData< 2 )
-        in<<"No\n";
-    else
-        in<<"Yes, "<<opt->nbData<<" data sets\n";
-    in<<"  f                                  Compute confidence intervals : ";
-    if (opt->ci){
-        in<<"Yes, sampling "<<opt->nbSampling<<" times\n";
-        in<<"  q                  Standard deviation of lognormal relaxed clock: "<<opt->q<<" (for computing confidence intervals)\n";
-    }
-    else
-        in<<"No\n";
-    if (opt->nullblen==-1 || opt->ci){
-        in<<"  s                                               Sequence length : "<<opt->seqLength<<"\n";
-    }
-    in<<"  e                                          Exclude outlier tips : ";
-    if (opt->e>0){
-        in<<"Yes, detect and exclude outliers from the analysis\n";
-        in<<"  m                   Number of sampling nodes to detect outliers : "<<opt->m<<"\n";
-        in<<"  e                       The Zscore threshold to detect outliers : "<<opt->e<<"\n";
-    }
-    else
-        in<<"No\n";
-    in<<"  u                Min internal branch length of time scaled tree : ";
-    if (opt->minblen==-1){
-        in<<"To estimate\n";
-        in<<"  R     Rounding number for min branch length of time scaled tree : ";
-        if (opt->round_time>0) in<<opt->round_time<<"\n";
-        else in<<"To guess\n";
+  }
+  in<<"  r                                             Estimate the root : ";
+  if (opt->estimate_root=="k"){
+    in<<"On the branch given by the outgroups\n";
+  }
+  else if (opt->estimate_root.compare("l")==0){
+    in<<"Around the given root\n";
+  }
+  else if (opt->estimate_root.compare("a")==0 && opt->constraint){
+    in<<"Use fast method to search on all branches\n";
+  }
+  else if (opt->estimate_root.compare("a")==0 && !opt->constraint){
+    in<<"Search on all branches\n";
+  }
+  else if (opt->estimate_root.compare("as")==0){
+    in<<"Use constrained mode on all branches\n";
+  }
+  else{
+    in<<"No\n";
+  }
+  in<<"  w                                       Given substitution rate : ";
+  if (opt->rate=="") in<<"No\n";
+  else in<<opt->rate.c_str()<<"\n";
+  in<<"  n                                             Multiple data set : ";
+  if( opt->nbData< 2 )
+    in<<"No\n";
+  else
+    in<<"Yes, "<<opt->nbData<<" data sets\n";
+  in<<"  f                                  Compute confidence intervals : ";
+  if (opt->ci && opt->bootstraps_file==""){
+    in<<"Yes, sampling "<<opt->nbSampling<<" times\n";
+    in<<"  q                  Standard deviation of lognormal relaxed clock: "<<opt->q<<" (for computing confidence intervals)\n";
+  } else if (opt->bootstraps_file!=""){
+    in<<"Use bootstrap trees from "<<opt->bootstraps_file<<"\n";
+  } else
+    in<<"No\n";
+  if (opt->nullblen==-1 || opt->ci){
+    in<<"  s                                               Sequence length : "<<opt->seqLength<<"\n";
+  }
+  in<<"  e                                          Exclude outlier tips : ";
+  if (opt->e>0){
+    in<<"Yes, detect and exclude outliers from the analysis\n";
+    in<<"  m                   Number of sampling nodes to detect outliers : "<<opt->m<<"\n";
+    in<<"  e                       The Zscore threshold to detect outliers : "<<opt->e<<"\n";
+  }
+  else
+    in<<"No\n";
+  in<<"  u                Min internal branch length of time scaled tree : ";
+  if (opt->minblen==-1){
+    in<<"To estimate\n";
+    in<<"  R     Rounding number for min branch length of time scaled tree : ";
+    if (opt->round_time>0) in<<opt->round_time<<"\n";
+    else in<<"To guess\n";
+  } else {
+    in<<opt->minblen<<"\n";
+  }
+  in<<"  U                Min external branch length of time scaled tree : ";
+  if (opt->minblenL==-1){
+    if (opt->minblen>0) {
+      opt->minblenL = opt->minblen;
+      in<<opt->minblenL<<"\n";
     } else {
-        in<<opt->minblen<<"\n";
+      in<<"To estimate\n";
     }
-    in<<"  U                Min external branch length of time scaled tree : ";
-    if (opt->minblenL==-1){
-        if (opt->minblen>0) {
-            opt->minblenL = opt->minblen;
-            in<<opt->minblenL<<"\n";
-        } else {
-            in<<"To estimate\n";
-        }
-    } else {
-        in<<opt->minblenL<<"\n";
-    }
-    in<<"  l                        Collapsed internal branch length limit : ";
-    if (opt->nullblen==-1){
-        in<<0.5/opt->seqLength<<"\n";
-    } else {
-        in<<opt->nullblen<<"\n";
-    }
-    in<<"  D                                            Output date format :";
-    if (opt->outDateFormat==0){
-        in<<" Based on input date format\n";
-    }
-    if (opt->outDateFormat==1){
-        in<<" Real number\n";
-    }
-    if (opt->outDateFormat==2){
-        in<<" Year-Month-Day\n";
-    }
+  } else {
+    in<<opt->minblenL<<"\n";
+  }
+  in<<"  l                        Collapsed internal branch length limit : ";
+  if (opt->bootstraps_file!=""){
+    in<<"Don't collapse\n";
+  } else if (opt->nullblen==-1){
+    in<<0.5/opt->seqLength<<"\n";
+  } else {
+    in<<opt->nullblen<<"\n";
+  }
+  in<<"  D                                            Output date format :";
+  if (opt->outDateFormat==0){
+    in<<" Based on input date format\n";
+  }
+  if (opt->outDateFormat==1){
+    in<<" Real number\n";
+  }
+  if (opt->outDateFormat==2){
+    in<<" Year-Month-Day\n";
+  }
+  in<<"  E  Estimate rates for external and internal branches separately : ";
+  if (opt->splitExternal){
+    in<<"Yes\n";
+  } else{
+    in<<"No\n";
+  }
 }
 
 

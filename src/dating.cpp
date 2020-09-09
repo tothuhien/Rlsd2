@@ -116,6 +116,7 @@ bool without_constraint(Pr* pr,Node** nodes){
                 b += 2*(nodes[i]->B+G[i])*F[i]/nodes[i]->V;
             }
         }
+        if (abs(a) < 1e-10) return false;
         pr->rho = -b/(2*a);
         if (pr->rho<pr->rho_min) pr->rho=pr->rho_min;
         delete[] F;
@@ -271,13 +272,16 @@ bool without_constraint_active_set(Pr* pr,Node** nodes){
     //this methods implements the LD algorithm (active set method)
     initialize_status(pr,nodes);
     list<int> active_set;
-    starting_point(pr,nodes,active_set);
+    //starting_point(pr,nodes,active_set);
     double* D_old = new double[pr->nbBranches+1];
     for (int i=0; i<=pr->nbBranches; i++) {
         D_old[i]=nodes[i]->D;
     }
     bool val = without_constraint(pr,nodes);
-    if (!val) return false;
+    if (!val) {
+      cerr<<"Error: There's not enough signal in the input temporal constraints to have unique solution."<<endl;
+      exit(EXIT_FAILURE);
+    }
     list<double> lambda = computeLambda(active_set,pr,nodes);
     int nb_iter=0;
     double alpha;
@@ -311,18 +315,6 @@ bool without_constraint_active_set(Pr* pr,Node** nodes){
             desactive(nodes[-asrm]);
         }
         for (int i=0;i<=pr->nbBranches;i++) D_old[i]=D_old[i]+alpha*dir[i];
-        /*for (int i=0;i<=pr->nbBranches;i++){
-         if (nodes[i]->type=='l'||nodes[i]->type=='b') {
-         if (D_old[i]-nodes[i]->lower<-1e-10) {
-         cout<<"PROBLEM"<<endl;
-         }
-         }
-         if (nodes[i]->type=='u'||nodes[i]->type=='b') {
-         if (D_old[i]-nodes[i]->upper>1e-10) {
-         cout<<"PROBLEM"<<endl;
-         }
-         }
-         }*/
         if (as!=0) {
             if (as>2*pr->nbBranches+1) {
                 active_set.push_back(-(as-2*pr->nbBranches-2));
@@ -375,7 +367,8 @@ bool conditionsQP(list<double>& ldLagrange,Pr* pr,Node** nodes){
 
 bool starting_pointQP(Pr* pr,Node** nodes,list<int> &active_set){
     //compute a starting feasible point, which is the solution from without constraint and then collapse all the branches that violate the constraints.
-    without_constraint_active_set(pr,nodes);
+    bool val = without_constraint_active_set(pr,nodes);
+    if (!val) return val;
     double* lowerX = new double[pr->nbBranches+1];
     bool* bl = new bool[pr->nbBranches+1];
     for (int i=0;i<=pr->nbBranches;i++){
@@ -418,8 +411,8 @@ bool starting_pointQP(Pr* pr,Node** nodes,list<int> &active_set){
                 else if ((nodes[s]->type == 'p') && nodes[s]->D - lowerX[i] < nodes[s]->minblen){
                     return false;
                 }
-                if (nodes[s]->D - lowerX[s] < nodes[s]->minblen){
-                    nodes[s]->D = lowerX[s] + nodes[s]->minblen;
+                if (nodes[s]->D < lowerX[s]){
+                  nodes[s]->D = lowerX[s];
                 }
             }
         }
@@ -470,8 +463,10 @@ bool starting_pointQP(Pr* pr,Node** nodes,list<int> &active_set){
                     active_set.remove(-i);
                 }
                 nodes[i]->D = minS;
-                activeTC(nodes[minI]);
-                active_set.push_back(minI);
+                if (!tc(nodes[minI])){
+                  activeTC(nodes[minI]);
+                  active_set.push_back(minI);
+                }
             }
             else{
                if (lower(nodes[i]) || upper(nodes[i])){
@@ -971,7 +966,6 @@ bool without_constraint_multirates(Pr* pr,Node** nodes,bool reassign){
         for (int i=1;i<pr->multiplierRate.size();i++) cout<<pr->multiplierRate[i]<<" ";
     }
     bool val = without_constraint_active_set(pr,nodes);
-    //if (pr->verbose) cout<<pr->rho<<endl;
     if (!val) return false;
     if (pr->ratePartition.size()>0) {
         double old_phi = 0;

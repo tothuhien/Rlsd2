@@ -17,6 +17,7 @@
 #include "subtree.h"
 #include "part.h"
 #include "lsd.h"
+#include <string.h>
 
 using namespace std;
 using namespace lsd;
@@ -41,9 +42,16 @@ public:
      */
     virtual void setTree(string str);
 
+    /**
+     set the content of the bootstrap tree stream
+    @param str a tree string
+    */
+    virtual void setBootstrapTree(string str);
+    
 protected:
     /** true tree is a file, false other (e.g. stringstream) */
     bool treeIsFile;
+    bool bootstrapTreeIsFile;
 };
 
 
@@ -271,7 +279,7 @@ bool outlierCheck(Pr* pr,Node** nodes);
 
 void calculate_tree_height(Pr* pr,Node** & nodes);
 
-void plitExternalBranches(Pr* pr,Node** nodes);
+void splitExternalBranches(Pr* pr,Node** nodes);
 
 void splitLongBranches(Pr* pr,Node** nodes,double th);
 
@@ -283,8 +291,6 @@ bool checkAllConstraintConsistent(Pr* pr,Node** nodes);
 
 double median(vector<double> array);
 
-void imposeMinBlen(ostream& result,Pr* pr, Node** nodes, double median_rate,bool medianRateOK);
-    
 int median_branch_lengths(Pr* pr,Node** nodes,double& m);
 
 int collapseTree(Pr* pr,Node** nodes,Node** nodes_new,int* &tab, double toCollapse,bool& useSupport);
@@ -302,6 +308,8 @@ void adjustNodeDateToYM(Node*& node,int m1,int d1,int m2,int d2);
 void adjustDateToYMD(Date*& date,int m1,int d1,int m2,int d2);
 
 void adjustDateToYM(Date*& date,int m1,int d1,int m2,int d2);
+
+bool checkTopology(Pr* pr,Node** nodes1, Node** nodes2);
 
 int readWholeDate(istream &dateFile,Pr* pr,int& type,double& v1,double& v2, double& m1,double& m2,double& d1,double& d2,int& dateFormat);
 #endif
