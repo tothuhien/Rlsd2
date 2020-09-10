@@ -11,8 +11,8 @@
 #' @param constraint if TRUE then temporal constraints is imposed
 #' @param variance apply variances for branche lengths. Either 0, or 1, or 2 which respectively means without variance, run lsd2 once with variances, and run lsd2 twice with variances where the second time variances are based on the estimated branch length of the first run.
 #' @param confidenceInterval if specified, then will compute the confidence intervals. 
-#' This can be either the number of bootstraps to generate simulated trees for calculing confidence intervals or a file contains the bootstrap trees or a list of bootstrap trees. 
-#' Note that those bootstrap trees have to have exactly the same topology as the input tree(s).
+#' This can be either the number of bootstraps to generate simulated trees or a file contains the bootstrap trees or a list of bootstrap trees. 
+#' Note that if bootstrap trees do not have the same topology as the input tree(s), then only confidence intervals of rates and root dates are calculated. Otherwise, confidence intervals of all internal nodes are also inferred.
 #' The confidence interval date of each node is reported in the nexus outfile.
 #' @param splitInternalExternalBranches whether to estimate the rate of internal and external branches separately. False by default.
 #' @param minRate the minimum threshold for rate
