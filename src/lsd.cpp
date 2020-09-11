@@ -126,9 +126,9 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                 opt->givenRate[0] = false;
             }
         }
-        if (opt->splitExternal) splitExternalBranches(opt,nodes);
         if (opt->estimate_root=="" || opt->estimate_root=="k") constraintConsistent = initConstraint(opt, nodes);
         if (opt->e>0) calculateOutliers(opt,nodes,median_rate);
+        if (opt->splitExternal) splitExternalBranches(opt,nodes);
         if (!opt->constraint){//LD without constraints
             if (!constraintConsistent){
                 ostringstream oss;
