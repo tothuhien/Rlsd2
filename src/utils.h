@@ -275,8 +275,6 @@ double* calculateRtt(Pr* pr,Node** nodes);
 
 double* sortTab(double* tab,int size);
 
-bool outlierCheck(Pr* pr,Node** nodes);
-
 void calculate_tree_height(Pr* pr,Node** & nodes);
 
 void splitExternalBranches(Pr* pr,Node** nodes);

@@ -22,7 +22,7 @@ Pr* getOptions( int argc, char** argv )
 
 Pr* getCommandLine( int argc, char** argv)
 {
-    const string VERSION="v.1.9.1";
+    const string VERSION="v.1.9.2";
     Pr* opt = new Pr();
     int c;
     string s;
@@ -346,7 +346,7 @@ Pr* getCommandLine( int argc, char** argv)
 
 void printInterface(ostream& in, Pr* opt)
 {
-  const string VERSION = "v.1.9.1";
+  const string VERSION = "v.1.9.2";
   
   in<<"\nLEAST-SQUARE METHODS TO ESTIMATE RATES AND DATES - "<<VERSION<<" \n\n";
   in<<"\nInput files:\n";
