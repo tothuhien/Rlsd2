@@ -560,6 +560,8 @@ int maxDate(int m,int & md){
 
 int readDate(istream& f,string fn,Pr* pr,double& y,double& month,double& day){
     int e;
+    month=-1;
+    day=-1;
     int sign = 1;
     if (f >> y) {
         if (y<0) {
@@ -614,6 +616,8 @@ int readDate(istream& f,string fn,Pr* pr,double& y,double& month,double& day){
 }
 
 int readDate1(istream& f,string fn,char c,Pr* pr,double& y,double& month,double& day){
+    month=-1;
+    day=-1;
     string wd="";
     wd+=c;
     int e;
@@ -689,15 +693,19 @@ int readWholeDate(istream &dateFile,Pr* pr,int& type,double& v1,double& v2, doub
                 type='l';
                 e=readDate(dateFile,"the input date",pr,v1,m1,d1);
                 if (e==EXIT_FAILURE) return e;
-                if (m1<0 && dateFormat!=3) dateFormat = 1;
-                else if (d1<0) dateFormat = 3;
+                if (v1 == (int) v1){
+                  if (m1<0 && dateFormat!=3) dateFormat = 1;
+                  else if (d1<0) dateFormat = 3;
+                }
             }
             else if (c=='u' || c=='U'){
                 type='u';
                 e=readDate(dateFile,"the input date",pr,v1,m1,d1);
                 if (e==EXIT_FAILURE) return e;
-                if (m1<0 && dateFormat!=3) dateFormat = 1;
-                else if (d1<0) dateFormat = 3;
+                if (v1 == (int) v1){
+                  if (m1<0 && dateFormat!=3) dateFormat = 1;
+                  else if (d1<0) dateFormat = 3;
+                }
             }
             else if (c=='b' || c=='B'){
                 type='b';
@@ -705,8 +713,14 @@ int readWholeDate(istream &dateFile,Pr* pr,int& type,double& v1,double& v2, doub
                 if (e==EXIT_FAILURE) return e;
                 e=readDate(dateFile,"the input date",pr,v2,m2,d2);
                 if (e==EXIT_FAILURE) return e;
-                if (m1<0 || m2<0) dateFormat = 1;
-                else if ((d1<0 || d2<0) && dateFormat!=3) dateFormat = 3;
+                if (v1 == (int) v1){
+                  if (m1<0 && dateFormat!=3) dateFormat = 1;
+                  else if (d1<0) dateFormat = 3;
+                }
+                if (v2 == (int) v2){
+                  if (m1<0 && dateFormat!=3) dateFormat = 1;
+                  else if (d1<0) dateFormat = 3;
+                }
                 if (v1>v2) {
                     double t=v1;
                     v1=v2;
