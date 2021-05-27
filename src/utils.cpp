@@ -1473,10 +1473,6 @@ bool initConstraintReRooted(Pr* pr,Node** nodes,int r,int p_r){
         int k=-1;
         if (no->mrca.size()==0){
             k=no->id;
-            if (k==0){
-                if (!integrateConstrainL(no,nodes[r])) return false;//or swap r and p_r
-                if (!integrateConstrainU(no,nodes[p_r])) return false;
-            }
         }
         else{
             k=mrca(nodes,(*iter)->mrca);
