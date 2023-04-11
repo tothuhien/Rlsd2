@@ -186,11 +186,15 @@ list<int> suc(int i,int j,Pr* pr,Node** nodes,int* & Pre,list<int> &sucL,list<in
 
 bool reroot_rootedtree(double& br,int r,int s1, int s2,Pr* pr,Node** nodes,Node** &nodes_new);
 
+bool reroot_rootedtree(double& br,int r,Pr* pr,Node** nodes);
+
 int reroot_rootedtree(int r,Pr* pr,Node** nodes,Node** &nodes_new);
 
 bool reroot_rootedtree(double& br,int r,int s1, int s2,Pr* pr,Node** nodes,Node** &nodes_new,int* & P_ref,int* & tab);
 
-Node** unrooted2rooted(Pr* &pr,Node** nodes);
+void unrooted2rooted(Pr* &pr,Node** nodes);
+
+void rooted2unrooted(Pr* &pr,Node** nodes);
 
 Node** unrooted2rootedS(Pr* &pr,Node** nodes,int s);
 
@@ -242,6 +246,10 @@ list<int> postorder_polytomy(Pr* pr,Node** nodes);
 vector<int> pre_polytomy(int i,Pr* pr,Node** nodes);
 
 vector<int> preorder_polytomy(Pr* pr,Node** nodes);
+
+vector<int> pre_polytomy_withTips(int i,Pr* pr,Node** nodes);
+
+vector<int> preorder_polytomy_withTips(Pr* pr,Node** nodes);
 
 stack<int>* computeFeuilles_polytomy(list<int> ls,Pr* pr,Node** nodes);
 
@@ -297,7 +305,7 @@ void collapse(int i,int j,Pr* pr,Node** nodes,Node** nodes_new,int &cc,int* &tab
 
 void collapseTreeReOrder(Pr* pr,Node** nodes,Pr* prReduced,Node** nodesReduced,int* &tab);
 
-void collapseUnInformativeBranches(Pr* &pr,Node** &nodes);
+void collapseUnInformativeBranches(Pr* &pr,Node** &nodes,bool verbose);
 
 void adjustNodeDateToYMD(Node*& node,int m1,int d1,int m2,int d2);
 
@@ -310,4 +318,11 @@ void adjustDateToYM(Date*& date,int m1,int d1,int m2,int d2);
 bool checkTopology(Pr* pr,Node** nodes1, Node** nodes2);
 
 int readWholeDate(istream &dateFile,Pr* pr,int& type,double& v1,double& v2, double& m1,double& m2,double& d1,double& d2,int& dateFormat);
+
+double* rtt(Pr* pr,Node** nodes);
+
+void starting_pointLower(Pr* pr,Node** nodes,list<int> & active_set);
+
+void starting_pointUpper(Pr* pr,Node** nodes,list<int> & active_set);
+
 #endif

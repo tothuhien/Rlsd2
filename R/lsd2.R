@@ -155,9 +155,8 @@ lsd2 <- function(inputTree, inputDate = NA, seqLen, partitionFile = NA, outFile 
     names(res) <- c("rate","tMRCA")
     cat("Reading output trees ...\n")
     res[["newickTree"]] = read.tree(paste0(outFile,".nwk"))
-    res[["nexusTreeFile"]] = read.beast(paste0(outFile,".nexus"))
-    res[["dateNexusTreeFile"]] = read.beast(paste0(outFile,".date.nexus"))
-    res[["outResultFiles"]] = c(outFile,paste0(outFile,".nwk"),paste0(outFile,".nexus"),paste0(outFile,".date.nexus"))
+    res[["dateNexusTree"]] = read.beast(paste0(outFile,".date.nexus"))
+    res[["outResultFiles"]] = c(outFile,paste0(outFile,".nwk"),paste0(outFile,".date.nexus"))
     cat("Done.\n")
   }
   return (res)

@@ -17,7 +17,7 @@ typedef struct Pr
     string partitionFile;   //Nom du fichier contenant la partition des arretes pour different taux
     string bootstraps_file; //Name of the file containing bootstrap trees
     string  outFile;        //Nom du fichier de resultats.
-    string treeFile1;       //Nom du fichier d'abres sorties Nexus
+    //string treeFile1;       //Nom du fichier d'abres sorties Nexus
     string treeFile2;       //Nom du fichier d'arbres sorties Nexus avec des longueurs de branches mesures par des temps ecoules
     string treeFile3;       //Nom du fichier d'arbres sorties Newick
     //bool relative;         //=true if all the leaves have the same date, the program estimate the relative dates
@@ -50,6 +50,11 @@ typedef struct Pr
     double round_time;
     int inDateFormat;//3 for year-month; 2 for year-month-day; 1 for real from 9-9999; 0 for everything else
     int outDateFormat;//3 for year-month; 2 for year-month-day; 1 for real
+    double rhoLower;
+    double rhoUpper;
+    bool haveLower;
+    bool haveUpper;
+    bool haveUnique;
     vector<double> multiplierRate;
     vector<bool> givenRate;
     double objective;
@@ -82,7 +87,7 @@ typedef struct Pr
         bootstraps_file = pr->bootstraps_file;
         fnOutgroup = pr->fnOutgroup;
         outFile = pr->outFile;
-        treeFile1 = pr->treeFile1;
+        //treeFile1 = pr->treeFile1;
         treeFile2 = pr->treeFile2;
         outlier = pr->outlier;
         mrca=pr->mrca;
@@ -124,6 +129,11 @@ typedef struct Pr
                 multiplierRate.push_back(pr->multiplierRate[i]);
             }
         }
+        rhoLower = pr->rhoLower;
+        rhoUpper = pr->rhoUpper;
+        haveLower = pr->haveLower;
+        haveUpper = pr->haveUpper;
+        haveUnique = pr->haveUnique;
         removeOutgroup = pr->removeOutgroup;
         m = pr->m;
         warningMessage = pr->warningMessage;
@@ -135,7 +145,7 @@ typedef struct Pr
         inDateFile = "";
         partitionFile = "";
         outFile = "";
-        treeFile1 = "";
+        //treeFile1 = "";
         treeFile2 = "";
         fnOutgroup = "";
         bootstraps_file = "";
@@ -179,6 +189,11 @@ typedef struct Pr
         givenRate = vector<bool>();
         givenRate.push_back(false);
         multiplierRate = vector<double>();
+        rhoLower = 0;
+        rhoUpper = 0;
+        haveLower = false;
+        haveUpper = false;
+        haveUnique = false;
         objective = 0;
         warningMessage = vector<string>();
         resultMessage = vector<string>();

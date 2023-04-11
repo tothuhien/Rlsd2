@@ -22,7 +22,7 @@ Pr* getOptions( int argc, char** argv )
 
 Pr* getCommandLine( int argc, char** argv)
 {
-    const string VERSION="v.1.9.2";
+    const string VERSION="v.2.4.1";
     Pr* opt = new Pr();
     int c;
     string s;
@@ -148,8 +148,8 @@ Pr* getCommandLine( int argc, char** argv)
                 return NULL;
             }
             opt->c = atof( optarg );
-            if (opt->c<=0 || opt->c>1){
-                myExit("Argument of option b must be a positive number samller than 1, see the help page of lsd2 for more information.\n");
+            if (opt->c<=0){
+                myExit("Argument of option b must be a positive number, see the help page of lsd2 for more information.\n");
                 return NULL;
             }
             break;
@@ -338,7 +338,7 @@ Pr* getCommandLine( int argc, char** argv)
         opt->estimate_root="k";
     }
     if( opt->outFile=="") opt->outFile = opt->inFile + ".result";
-    opt->treeFile1=opt->outFile+".nexus";
+    //opt->treeFile1=opt->outFile+".nexus";
     opt->treeFile2=opt->outFile+".date.nexus";
     opt->treeFile3=opt->outFile+".nwk";
     return opt;
@@ -346,7 +346,7 @@ Pr* getCommandLine( int argc, char** argv)
 
 void printInterface(ostream& in, Pr* opt)
 {
-  const string VERSION = "v.1.9.2";
+  const string VERSION = "v.2.4.1";
   
   in<<"\nLEAST-SQUARE METHODS TO ESTIMATE RATES AND DATES - "<<VERSION<<" \n\n";
   in<<"\nInput files:\n";

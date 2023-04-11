@@ -205,12 +205,12 @@ InputOutputFile::InputOutputFile(Pr *opt,bool& allIsOK) : InputOutputStream() {
         allIsOK = false;
     }
 
-    ofstream *tree1_file = new ofstream(opt->treeFile1);
+    /*ofstream *tree1_file = new ofstream(opt->treeFile1);
     outTree1 = tree1_file;
     if (!tree1_file->is_open()) {
         cerr << "Error: can not create the output tree file " << opt->treeFile1 << endl;
         allIsOK = false;
-    }
+    }*/
 
     ofstream *tree2_file = new ofstream(opt->treeFile2);
     outTree2 = tree2_file;
@@ -988,7 +988,37 @@ int readCommaBracket(istream& f,string fn,string& s,char& c){
     return EXIT_SUCCESS;
 }
 
-Node** unrooted2rooted(Pr* & pr,Node** nodes){
+void unrooted2rooted(Pr* &pr,Node** nodes){
+  nodes[0] = new Node();
+  nodes[0]->P=-1;
+  int s = nodes[1]->suc[0];
+  double br=nodes[s]->B;
+  nodes[s]->B=br/2;
+  nodes[1]->B=br/2;
+  nodes[s]->P=0;
+  nodes[1]->P=0;
+  nodes[1]->suc.erase(nodes[1]->suc.begin());
+  nodes[0]->suc.push_back(1);
+  nodes[0]->suc.push_back(s);
+  pr->rooted = true;
+}
+
+
+void rooted2unrooted(Pr* &pr,Node** nodes){
+  int s1 = nodes[0]->suc[0];
+  int s2 = nodes[0]->suc[1];
+  if (s1 != 1){
+    s2 = s1;
+    s1 = 1;
+  }
+  nodes[s1]->P = -1;
+  nodes[s2]->P = s1;
+  nodes[s1]->suc.push_back(s2);
+  nodes[s2]->B = nodes[s2]->B + nodes[s1]->B;
+  pr->rooted = false;
+}
+
+/*Node** unrooted2rooted(Pr* & pr,Node** nodes){
     Node** nodes_new = new Node*[pr->nbBranches+1];
     for (int i=pr->nbINodes; i<=pr->nbBranches; i++) {
         nodes_new[i]=new Node();
@@ -1023,7 +1053,7 @@ Node** unrooted2rooted(Pr* & pr,Node** nodes){
     delete[] nodes;
     pr->rooted = true;
     return nodes_new;
-}
+}*/
 
 Node** unrooted2rootedS(Pr* &pr,Node** nodes,int s){//simplier version, use only for remove outgroup
     Node** nodes_new = new Node*[pr->nbBranches+1];
@@ -1369,7 +1399,7 @@ void desactiveLimit(Node* no){
     if (upper(no)) no->status-=2+8;
 }
 
-bool integrateConstrainL(Date* d1,Node* n2){//n1 is an ancestor of n2
+/*bool integrateConstrainL(Date* d1,Node* n2){//n1 is an ancestor of n2
     if (n2->type=='n') {
         if (d1->type=='l' || d1->type=='b') {
             n2->type='l';
@@ -1460,7 +1490,7 @@ bool integrateConstrainU(Date* d1,Node* n2){//n1 is a child of n2
         }
     }
     return true;
-}
+}*/
 
 bool initConstraintReRooted(Pr* pr,Node** nodes,int r,int p_r){
     bool constraintConsistent=true;
@@ -1670,6 +1700,70 @@ void cloneInternalNodes(Pr* pr,Node** nodes,Node** &nodes_new,int f){
     return true;
 }*/
 
+bool reroot_rootedtree(double& br,int r,Pr* pr,Node** nodes){
+  Node** nodes_new = cloneLeaves(pr,nodes,0);
+  vector<int>::iterator iter=nodes[0]->suc.begin();
+  int s10=(*iter);
+  iter++;
+  int s20=(*iter);
+  for (int i=pr->nbINodes; i<=pr->nbBranches; i++) {
+    nodes_new[i]->status=nodes[i]->status;
+  }
+  cloneInternalNodes(pr,nodes,nodes_new,0);
+  if (r==s10 || r==s20){
+    br = nodes[s10]->B+nodes[s20]->B;
+    nodes_new[s10]->B=br;
+    nodes_new[s20]->B=br;
+    computeVarianceEstimateRoot(pr,nodes_new,br);
+    nodes = nodes_new;
+    return initConstraint(pr,nodes_new);
+  }
+  else {
+    nodes_new[0]->L="";
+    nodes_new[0]->P=-1;
+    nodes_new[r]->P=0;
+    nodes_new[nodes[r]->P]->P=0;
+    nodes_new[0]->suc.clear();
+    nodes_new[0]->suc.push_back(r);
+    nodes_new[0]->suc.push_back(nodes[r]->P);
+    int ii=r;
+    int i=nodes[r]->P;
+    int j=nodes[i]->P;
+    while (j!=0){
+      nodes_new[i]->suc.clear();
+      nodes_new[i]->suc.push_back(j);
+      for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
+        if (*iter!=ii) {
+          nodes_new[i]->suc.push_back(*iter);
+        }
+      }
+      nodes_new[j]->P=i;
+      nodes_new[j]->B=nodes[i]->B;
+      ii=i;
+      i=j;
+      j=nodes[i]->P;
+    }
+    int k=s10;
+    if (k==i) k=s20;
+    nodes_new[k]->P=i;
+    nodes_new[i]->suc.clear();
+    nodes_new[i]->suc.push_back(k);
+    for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
+      if (*iter!=ii) {
+        nodes_new[i]->suc.push_back(*iter);
+      }
+    }
+    br=nodes[r]->B;
+    nodes_new[k]->B=nodes[i]->B+nodes[k]->B;
+    nodes_new[r]->B=br;
+    nodes_new[nodes[r]->P]->B=br;
+    computeVarianceEstimateRoot(pr,nodes_new,br);
+    nodes = nodes_new;
+    return initConstraintReRooted(pr, nodes_new,k,i);
+  }
+}
+
+
 bool reroot_rootedtree(double& br,int r,int s10,int s20,Pr* pr,Node** nodes,Node** &nodes_new){
     cloneInternalNodes(pr,nodes,nodes_new,0);
     if (r==s10 || r==s20){
@@ -1722,7 +1816,6 @@ bool reroot_rootedtree(double& br,int r,int s10,int s20,Pr* pr,Node** nodes,Node
         return initConstraintReRooted(pr, nodes_new,k,i);
     }
 }
-
 
 bool reroot_rootedtree(double& br,int r,int s10,int s20,Pr* pr,Node** nodes,Node** &nodes_new,int* & P_ref,int* & tab){
     cloneInternalNodes(pr,nodes,nodes_new,0);
@@ -2053,9 +2146,11 @@ string nexusICDate(int i,Pr* pr,Node** nodes,double* D_min,double* D_max,double*
       }
       if (i>0) {
         return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}]:"+b.str();
+        //return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date=\"{"+dmin.str()+","+dmax.str()+"}\"]:"+b.str();
       }
       else{
         return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date={"+dmin.str()+","+dmax.str()+"}];\n";
+        //return newLabel+")"+nodes[i]->L+"[&date=\""+date.str()+"\",CI_height={"+hmin.str()+","+hmax.str()+"},CI_date=\"{"+dmin.str()+","+dmax.str()+"}\"];\n";
       }
     }
   }
@@ -2200,6 +2295,31 @@ vector<int> preorder_polytomy(Pr* pr,Node** nodes){
         if (nodes[root]->P==-1) break;
     }
     return pre_polytomy(root,pr,nodes);
+}
+
+vector<int> pre_polytomy_withTips(int i,Pr* pr,Node** nodes){
+  vector<int> l;
+  l.push_back(i);
+  if (i>=pr->nbINodes){
+    return l;
+  }
+  else{
+    for (vector<int>::iterator iter = nodes[i]->suc.begin();iter!=nodes[i]->suc.end();iter++){
+      vector<int> l1 = pre_polytomy_withTips(*iter,pr,nodes);
+      for (vector<int>::iterator iter1=l1.begin();iter1!=l1.end();iter1++){
+        l.push_back(*iter1);
+      }
+    }
+    return l;
+  }
+}
+
+vector<int> preorder_polytomy_withTips(Pr* pr,Node** nodes){
+  int root=0;
+  for (root=0;root<=pr->nbBranches;root++){
+    if (nodes[root]->P==-1) break;
+  }
+  return pre_polytomy_withTips(root,pr,nodes);
 }
 
 list<int> down_polytomy(int i,Pr* pr,Node** nodes){
@@ -2816,6 +2936,7 @@ int collapseTree(Pr* pr,Node** nodes,Node** nodes_new,int* &tab, double toCollap
 
 void collapseTreeReOrder(Pr* pr,Node** nodes,Pr* prReduced,Node** nodesReduced,int* &tab){
     int root = (int)(!pr->rooted);
+    nodesReduced[0]=new Node();
     nodesReduced[root]=new Node();
     nodesReduced[root]->P=-1;
     nodesReduced[root]->type=nodes[root]->type;
@@ -2834,6 +2955,7 @@ void collapseTreeReOrder(Pr* pr,Node** nodes,Pr* prReduced,Node** nodesReduced,i
             nodesReduced[tab[i]]->L=nodes[i]->L;
         }
     }
+    /*
     for (vector<Date*>::iterator iter=pr->internalConstraints.begin();iter!=pr->internalConstraints.end();iter++){
         Date* no = (*iter);
         if (no->mrca.size()==0){
@@ -2846,7 +2968,7 @@ void collapseTreeReOrder(Pr* pr,Node** nodes,Pr* prReduced,Node** nodesReduced,i
             }
             no->mrca = new_mrca;
         }
-    }
+    }*/
     if (pr->ratePartition.size()>0) {
         for (int i=root;i<=pr->nbBranches;i++){
             if (tab[i]!=-1) nodesReduced[tab[i]]->rateGroup = nodes[i]->rateGroup;
@@ -2854,21 +2976,23 @@ void collapseTreeReOrder(Pr* pr,Node** nodes,Pr* prReduced,Node** nodesReduced,i
     }
 }
 
-void collapseUnInformativeBranches(Pr* &pr,Node** &nodes){
+void collapseUnInformativeBranches(Pr* &pr,Node** &nodes,bool verbose){
     Node** nodes_new = new Node*[pr->nbBranches+1];
     int* tab = new int[pr->nbBranches+1];
     bool useSupport = (pr->support>=0);
     int nbC = collapseTree(pr, nodes, nodes_new,tab, pr->nullblen,useSupport);//nbC is the number of internal nodes reduced
-    if (!useSupport) {
-      cout<<"Collapse "<<(pr->nbINodes - nbC)<<" (over "<<(pr->nbINodes - (!pr->rooted) -1 )<<") internal branches having branch length <= "<<pr->nullblen<<"\n (settable via option -l)"<<endl;
-    }
-    else {
-      cout<<"Collapse "<<(pr->nbINodes - nbC)<<" (over "<<(pr->nbINodes - (!pr->rooted) -1 )<<") internal branches having branch length <= "<<pr->nullblen<<"\n (settable via option -l) or support value <= "<<pr->support<<"\n (settable via option -S)"<<endl;
-    }
-    if (  (double)(pr->nbINodes - nbC)/(pr->nbINodes - (!pr->rooted) -1) > 0.1){
+    if (verbose){
+      if (!useSupport) {
+        cout<<"Collapse "<<(pr->nbINodes - nbC)<<" (over "<<(pr->nbINodes - (!pr->rooted) -1 )<<") internal branches having branch length <= "<<pr->nullblen<<"\n (settable via option -l)"<<endl;
+      }
+      else {
+        cout<<"Collapse "<<(pr->nbINodes - nbC)<<" (over "<<(pr->nbINodes - (!pr->rooted) -1 )<<") internal branches having branch length <= "<<pr->nullblen<<"\n (settable via option -l) or support value <= "<<pr->support<<"\n (settable via option -S)"<<endl;
+      }
+      if (  (double)(pr->nbINodes - nbC)/(pr->nbINodes - (!pr->rooted) -1) > 0.1){
         ostringstream oss;
         oss<<"- "<<(pr->nbINodes - nbC)*100/(double)(pr->nbINodes - (!pr->rooted) -1)<<"% internal branches were collapsed.\n";
         pr->warningMessage.push_back(oss.str());
+      }
     }
     Node** nodesReduced = new Node*[nbC+pr->nbBranches-pr->nbINodes+1];
     Pr* prReduced = new Pr(nbC,nbC+pr->nbBranches-pr->nbINodes);
@@ -3213,6 +3337,38 @@ void adjustDateToYM(Date*& date,int m1,int d1,int m2,int d2){
     }
 }
 
+double* rtt(Pr* pr,Node** nodes){
+  double* r2t = new double[pr->nbBranches+1];
+  for (int i=0;i<=pr->nbBranches;i++){
+    double r=0;
+    int j=i;
+    while (j!=0){
+      r+=nodes[j]->B;
+      j=nodes[j]->P;
+    }
+    r2t[i]=r;
+  }
+  return r2t;
+}
 
+void starting_pointLower(Pr* pr,Node** nodes,list<int> & active_set){
+  for (int i =0;i<=pr->nbBranches;i++) {
+    if (nodes[i]->type=='l' || nodes[i]->type=='b') {
+      activeLower(nodes[i]);
+      nodes[i]->D=nodes[i]->lower;
+      active_set.push_back(-i);
+    }
+  }
+}
+
+void starting_pointUpper(Pr* pr,Node** nodes,list<int> & active_set){
+  for (int i =0;i<=pr->nbBranches;i++) {
+    if (nodes[i]->type=='u' || nodes[i]->type=='b') {
+      activeUpper(nodes[i]);
+      nodes[i]->D=nodes[i]->upper;
+      active_set.push_back(-i);
+    }
+  }
+}
 
 

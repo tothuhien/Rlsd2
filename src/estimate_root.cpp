@@ -54,6 +54,11 @@ bool without_constraint_lambda(double br,Pr* &par,Node** &nodes,list<int> active
         double *W= new double[par->nbINodes];
         double *C = new double[par->nbINodes];
         double *X = new double[par->nbINodes];//nodes[i]->D=W[i].T[a(i)]+C[i]+X[i]/par->rho
+        for (int i=0;i<par->nbINodes;i++){
+          W[i]=0;
+          C[i]=0;
+          X[i]=0;
+        }
         for (list<int>::iterator iter=pos.begin();iter!=pos.end();iter++){
             int i =  *iter;
             if (leaf(nodes[i])) {
@@ -124,8 +129,8 @@ bool without_constraint_lambda(double br,Pr* &par,Node** &nodes,list<int> active
                         wtemp=-1/nodes[r]->V;
                     }
                     for (vector<int>::iterator iter = nodes[i]->suc.begin();iter!=nodes[i]->suc.end();iter++){
-                        //if (leaf(nodes[*iter])) {
-                        if (*iter >= par->nbINodes) {
+                      if (leaf(nodes[*iter])) {
+                        //if (*iter >= par->nbINodes) {
                             coefs+=1/nodes[*iter]->V;
                             ctemp+=nodes[*iter]->D/nodes[*iter]->V;
                             xtemp-=nodes[*iter]->B/nodes[*iter]->V;
@@ -136,7 +141,7 @@ bool without_constraint_lambda(double br,Pr* &par,Node** &nodes,list<int> active
                             xtemp+=(X[*iter]-nodes[*iter]->B)/nodes[*iter]->V;
                         }
                     }
-                    if (coefs==0) {
+                    if (abs(coefs)<=1e-10) {
                         return false;
                     }
                     C[i]=ctemp/coefs;
@@ -357,9 +362,11 @@ bool without_constraint_lambda(double br,Pr* &par,Node** &nodes,list<int> active
         return true;
     }
 }
-bool without_constraint_active_set_lambda(double br,Pr* &pr,Node** &nodes){
+bool without_constraint_active_set_lambda(double br,Pr* &pr,Node** &nodes,int whichStartingPoint){
     initialize_status(pr,nodes);
     list<int> active_set;
+    if (whichStartingPoint==-1) starting_pointLower(pr,nodes,active_set);
+    if (whichStartingPoint==1) starting_pointUpper(pr,nodes,active_set);
     for (vector<int>::iterator iter=nodes[0]->suc.begin(); iter!=nodes[0]->suc.end(); iter++) {
         nodes[*iter]->B=br/2.;
     }
@@ -367,7 +374,6 @@ bool without_constraint_active_set_lambda(double br,Pr* &pr,Node** &nodes){
     for (int i=0; i<=pr->nbBranches; i++) {
       D_old[i]=nodes[i]->D;
     }
-    
     list<double> lambda;
     bool val = without_constraint_lambda(br,pr,nodes,active_set,lambda);
     int nb_iter=0;
@@ -385,6 +391,13 @@ bool without_constraint_active_set_lambda(double br,Pr* &pr,Node** &nodes){
             if (a<alpha){
               alpha = a;
               as = i+pr->nbBranches+1;
+            }
+          }
+          if (dir[i]>0 && (nodes[i]->type=='u' || nodes[i]->type=='b')){
+            a = (nodes[i]->upper-D_old[i])/dir[i];
+            if (a<alpha){
+              alpha = a;
+              as = i+2*pr->nbBranches+2;
             }
           }
         }
@@ -511,7 +524,7 @@ bool with_constraint_lambda(double br,Pr* &pr,Node** &nodes,list<int> active_set
                                 xtemp+=(X[*iter]-nodes[*iter]->B)/nodes[*iter]->V;
                             }
                         }
-                        if (coefs==0) {
+                        if (abs(coefs)<=1e-10) {
                             return false;
                         }
                         C[i]=ctemp/coefs;
@@ -658,7 +671,7 @@ bool with_constraint_lambda(double br,Pr* &pr,Node** &nodes,list<int> active_set
                                 xtemp+=(X[*iter]-nodes[*iter]->B)/nodes[*iter]->V;
                             }
                         }
-                        if (coefs==0) {
+                        if (abs(coefs)<=1e-10) {
                             return false;
                         }
                         C[i]=ctemp/coefs;
@@ -991,12 +1004,38 @@ bool with_constraint_lambda(double br,Pr* &pr,Node** &nodes,list<int> active_set
     }
 }
 
-bool with_constraint_active_set_lambda(double br,Pr* &pr,Node** &nodes){
+bool without_constraint_active_set_lambda(bool all,double br,Pr* &pr,Node** &nodes){
+  bool val = false;
+  if (pr->haveUnique) {
+    val = without_constraint_active_set_lambda(br,pr,nodes,0);
+  }
+  if (!val){
+    bool valL = false;
+    bool valU = false;
+    if (pr->haveLower){
+      valL = without_constraint_active_set_lambda(br,pr,nodes,-1);
+      if (valL){
+        pr->rhoLower = pr->rho;
+        val = true;
+      }
+    }
+    if (!pr->haveLower || (all && pr->haveUpper)){
+      valU = without_constraint_active_set_lambda(br,pr,nodes,1);
+      if (valU){
+        pr->rhoUpper = pr->rho;
+        val = true;
+      }
+    }
+  }
+  return val;
+}
+
+bool with_constraint_active_set_lambda(double br,Pr* &pr,Node** &nodes,int whichStartingPoint){
     for (vector<int>::iterator iter=nodes[0]->suc.begin(); iter!=nodes[0]->suc.end(); iter++) {
         nodes[*iter]->B=br/2.;
     }
     list<int> active_set;
-    bool consistent = starting_pointQP(pr,nodes,active_set);
+    bool consistent = starting_pointQP(pr,nodes,active_set,whichStartingPoint);
     if (consistent){
         list<double> lambda;
         double* dir = new double[pr->nbBranches+1];
@@ -1080,6 +1119,31 @@ bool with_constraint_active_set_lambda(double br,Pr* &pr,Node** &nodes){
     else return false;
 }
 
+bool with_constraint_active_set_lambda(bool all,double br,Pr* &pr,Node** &nodes){
+  bool val = false;
+  if (pr->haveUnique) {
+    val = with_constraint_active_set_lambda(br,pr,nodes,0);
+  }
+  if (!val){
+    bool valL = false;
+    bool valU = false;
+    if (pr->haveLower){
+      valL = with_constraint_active_set_lambda(br,pr,nodes,-1);
+      if (valL){
+        pr->rhoLower = pr->rho;
+        val = true;
+      }
+    }
+    if (!pr->haveLower || (all && pr->haveUpper)){
+      valU = with_constraint_active_set_lambda(br,pr,nodes,1);
+      if (valU){
+        pr->rhoUpper = pr->rho;
+        val = true;
+      }
+    }
+  }
+  return val;
+}
 
 int estimate_root_without_constraint_local_rooted(Pr* &pr,Node** &nodes){
     //P: rooted tree, recherche la nouvelle racine autour de l'ancien racine.
@@ -1104,7 +1168,7 @@ int estimate_root_without_constraint_local_rooted(Pr* &pr,Node** &nodes){
         for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
             if (nodes_new[i]->type=='p') nodes_new[i]->D = originalD[i];
         }
-        bool consistent=without_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+        bool consistent=without_constraint_active_set_lambda_multirates(false,br,pr,nodes_new,true);
         if (consistent) {
             cv[s1]=pr->objective;
             if (pr->verbose){
@@ -1118,11 +1182,11 @@ int estimate_root_without_constraint_local_rooted(Pr* &pr,Node** &nodes){
             }
         }
         else{
-          if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+          if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
         }
     }
     else{
-      if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+      if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
     }
     list<int> next;
     if (s1<pr->nbINodes){
@@ -1146,7 +1210,7 @@ int estimate_root_without_constraint_local_rooted(Pr* &pr,Node** &nodes){
             for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
                 if (nodes_new[i]->type=='p') nodes_new[i]->D = originalD[i];
             }
-            bool consistent=without_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+            bool consistent=without_constraint_active_set_lambda_multirates(false,br,pr,nodes_new,true);
             if (consistent) {
                 cv[i]=pr->objective;
                 if (pr->verbose){
@@ -1167,7 +1231,7 @@ int estimate_root_without_constraint_local_rooted(Pr* &pr,Node** &nodes){
                 }
             }
             else{
-              if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+              if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
                 if (i<pr->nbINodes){
                     for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
                         next.push_back(*iter);
@@ -1176,7 +1240,7 @@ int estimate_root_without_constraint_local_rooted(Pr* &pr,Node** &nodes){
             }
         }
         else{
-          if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+          if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
             if (i<pr->nbINodes){
                 for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
                     next.push_back(*iter);
@@ -1186,7 +1250,7 @@ int estimate_root_without_constraint_local_rooted(Pr* &pr,Node** &nodes){
         next.remove(i);
     }
     if (r==0) {
-      cout<<"There's conflict in the input temporal constraints"<<endl;
+      cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
     }
     if (pr->verbose) {
       if (r==s1 || r==s2) cout<<"The new root is on the original branch."<<endl;
@@ -1224,7 +1288,7 @@ int estimate_root_without_constraint_rooted(Pr* &pr,Node** &nodes){
         for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
             if (nodes_new[i]->type=='p') nodes_new[i]->D = originalD[i];
         }
-        bool consistent=without_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+        bool consistent=without_constraint_active_set_lambda_multirates(false,br,pr,nodes_new,true);
         if (consistent) {
             phi1=pr->objective;
             if (pr->verbose){
@@ -1236,11 +1300,11 @@ int estimate_root_without_constraint_rooted(Pr* &pr,Node** &nodes){
             }
         }
         else{
-          if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+          if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
         }
     }
     else{
-      if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+      if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
     }
     y++;
     double phi;
@@ -1254,7 +1318,7 @@ int estimate_root_without_constraint_rooted(Pr* &pr,Node** &nodes){
             for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
                 if (nodes_new[i]->type=='p') nodes_new[i]->D = originalD[i];
             }
-            bool consistent=without_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+            bool consistent=without_constraint_active_set_lambda_multirates(false,br,pr,nodes_new,true);
             if (consistent) {
                 phi=pr->objective;
                 if (pr->verbose){
@@ -1269,16 +1333,16 @@ int estimate_root_without_constraint_rooted(Pr* &pr,Node** &nodes){
                 }
             }
             else{
-              if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+              if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
             }
         }
         else{
-          if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+          if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
         }
         y++;
     }
     if (r==0) {
-      cout<<"There's conflict in the input temporal constraints"<<endl;
+      cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
     }
     if (pr->verbose) {
       if (r==s1 || r==s2) cout<<"The new root is on the original branch."<<endl;
@@ -1314,7 +1378,7 @@ int estimate_root_with_constraint_local_rooted(Pr* &pr,Node** &nodes){
     for (int i=0;i<=pr->nbBranches;i++) originalD.push_back(nodes[i]->D);
     bool bl = reroot_rootedtree(br,s1,s1,s2,pr,nodes,nodes_new);
     if (bl){
-        bool consistent=with_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+        bool consistent=with_constraint_active_set_lambda_multirates(false,br,pr,nodes_new,true);
         if (consistent){
             cv[s1]=pr->objective;
             if (pr->verbose){
@@ -1328,11 +1392,11 @@ int estimate_root_with_constraint_local_rooted(Pr* &pr,Node** &nodes){
             }
         }
         else{
-          if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+          if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
         }
     }
     else{
-      if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+      if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
     }
     list<int> next;
     if (s1<pr->nbINodes){
@@ -1356,7 +1420,7 @@ int estimate_root_with_constraint_local_rooted(Pr* &pr,Node** &nodes){
             for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
                 if (nodes_new[i]->type=='p') nodes_new[i]->D = originalD[i];
             }
-            bool consistent=with_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+            bool consistent=with_constraint_active_set_lambda_multirates(false,br,pr,nodes_new,true);
             if (consistent){
                 cv[i]=pr->objective;
                 if (pr->verbose){
@@ -1377,7 +1441,7 @@ int estimate_root_with_constraint_local_rooted(Pr* &pr,Node** &nodes){
                 }
             }
             else{
-                if (pr->verbose) cout<<"Ignoring due to temporal constrainst conflict.\n";
+              if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
                 if (i<pr->nbINodes){
                     for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
                         next.push_back(*iter);
@@ -1386,7 +1450,7 @@ int estimate_root_with_constraint_local_rooted(Pr* &pr,Node** &nodes){
             }
         }
         else{
-          if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+          if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
             if (i<pr->nbINodes){
                 for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
                     next.push_back(*iter);
@@ -1396,7 +1460,7 @@ int estimate_root_with_constraint_local_rooted(Pr* &pr,Node** &nodes){
         next.remove(i);
     }
     if (r==0) {
-      cout<<"There's conflict in the input temporal constraints"<<endl;
+      cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
     }
     if (pr->verbose) {
       if (r==s1 || r==s2) cout<<"The new root is on the original branch."<<endl;
@@ -1442,7 +1506,7 @@ int estimate_root_with_constraint_fast_rooted(Pr* &pr,Node** &nodes){
             for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
                 if (nodes_new[i]->type=='p') nodes_new[i]->D = originalD[i];
             }
-            bool consistent=with_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+            bool consistent=with_constraint_active_set_lambda_multirates(false,br,pr,nodes_new,true);
             if (consistent){
                 cv[r]=pr->objective;
                 if (pr->verbose){
@@ -1454,11 +1518,11 @@ int estimate_root_with_constraint_fast_rooted(Pr* &pr,Node** &nodes){
                 }
             }
             else{
-              if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+              if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
             }
         }
         else{
-          if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+          if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
         }
         list<int> next;
         int* Suc1_ref = new int[pr->nbINodes];
@@ -1486,7 +1550,7 @@ int estimate_root_with_constraint_fast_rooted(Pr* &pr,Node** &nodes){
                 for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
                     if (nodes_new[i]->type=='p') nodes_new[i]->D = originalD[i];
                 }
-                bool consistent=with_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+                bool consistent=with_constraint_active_set_lambda_multirates(false,br,pr,nodes_new,true);
                 if (consistent){
                     cv[e]=pr->objective;
                     if (pr->verbose){
@@ -1506,7 +1570,7 @@ int estimate_root_with_constraint_fast_rooted(Pr* &pr,Node** &nodes){
                     }
                 }
                 else{
-                  if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+                  if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
                     if (i<pr->nbINodes){
                         next.push_back(Suc1_ref[i]);
                         next.push_back(Suc2_ref[i]);
@@ -1514,7 +1578,7 @@ int estimate_root_with_constraint_fast_rooted(Pr* &pr,Node** &nodes){
                 }
             }
             else{
-              if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+              if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
                 if (i<pr->nbINodes){
                     next.push_back(Suc1_ref[i]);
                     next.push_back(Suc2_ref[i]);
@@ -1564,7 +1628,7 @@ int estimate_root_with_constraint_rooted(Pr* &pr,Node** &nodes){
         for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
             if (nodes_new[i]->type=='p') nodes_new[i]->D = originalD[i];
         }
-        bool consistent=with_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+        bool consistent=with_constraint_active_set_lambda_multirates(false,br,pr,nodes_new,true);
         if (consistent){
             if (pr->verbose) cout<<"objective function: "<<pr->objective<<", rate: "<<pr->rho<<"\n";
             r=y;
@@ -1574,11 +1638,11 @@ int estimate_root_with_constraint_rooted(Pr* &pr,Node** &nodes){
             }
         }
         else{
-          if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+          if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
         }
     }
     else{
-      if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+      if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
     }
     y++;
     while (y<=pr->nbBranches){
@@ -1591,7 +1655,7 @@ int estimate_root_with_constraint_rooted(Pr* &pr,Node** &nodes){
             for (int i=pr->nbINodes;i<=pr->nbBranches;i++){
                 if (nodes_new[i]->type=='p') nodes_new[i]->D = originalD[i];
             }
-            bool consistent=with_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+            bool consistent=with_constraint_active_set_lambda_multirates(false,br,pr,nodes_new,true);
             if (consistent){
                 phi=pr->objective;
                 if (pr->verbose) {
@@ -1606,16 +1670,16 @@ int estimate_root_with_constraint_rooted(Pr* &pr,Node** &nodes){
                 }
             }
             else{
-              if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+              if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
             }
         }
         else{
-          if (pr->verbose) cout<<"Ignoring due to conflict in the input temporal constraints.\n";
+          if (pr->verbose) cout<<"Ignoring due to conflict or not enough information in the input temporal constraints.\n";
         }
         y++;
     }
     if (r==0) {
-      cout<<"There's conflict in the input temporal constraints"<<endl;
+      cout<<"There's conflict or not enough information in the input temporal constraints.\n"<<endl;
     }
     if (pr->verbose) {
       if (r==s1 || r==s2) cout<<"The new root is on the original branch."<<endl;
@@ -1662,7 +1726,7 @@ void calculateMultiplier_lambda(int r,int p_r,double br,Pr* &pr,Node** &nodes,bo
     }
 }
 
-bool without_constraint_active_set_lambda_multirates(double br,Pr* &pr,Node** &nodes,bool reassign){
+bool without_constraint_active_set_lambda_multirates(bool all,double br,Pr* &pr,Node** &nodes,bool reassign){
     vector<int>::iterator iter=nodes[0]->suc.begin();
     int r=(*iter);//r=r1
     iter++;
@@ -1688,7 +1752,8 @@ bool without_constraint_active_set_lambda_multirates(double br,Pr* &pr,Node** &n
         }
         br = br/pr->multiplierRate[nodes[r]->rateGroup];
     }
-    bool consistent = without_constraint_active_set_lambda(br,pr,nodes);
+    bool val = without_constraint_active_set_lambda(all,br,pr,nodes);
+    if (!val) return false;
     if (pr->ratePartition.size()>0) {
         vector<int>::iterator iter=nodes[0]->suc.begin();
         bool* nan = new bool[pr->ratePartition.size()+1];
@@ -1719,13 +1784,19 @@ bool without_constraint_active_set_lambda_multirates(double br,Pr* &pr,Node** &n
                 nodes[j]->B = B[j]/m;
                 nodes[j]->V = V[j]/m/m;
             }
-            consistent = without_constraint_active_set_lambda(br,pr,nodes);
+            val = without_constraint_active_set_lambda(false,br,pr,nodes);
             cont = abs((old_rho-pr->rho)/pr->rho) >= 1e-5;
             for (int j=1; j<=pr->ratePartition.size(); j++) {
                 cont = cont || (abs((old_multi[j]*old_rho-pr->multiplierRate[j]*pr->rho)/pr->multiplierRate[j]/pr->rho)>=1e-5);
             }
             i++;
         } while (cont);
+        if (!pr->haveUnique && (!pr->haveLower || pr->haveUpper)){
+          val = without_constraint_active_set_lambda(br,pr,nodes,1);
+          if (val){
+            pr->rhoUpper = pr->rho;
+          }
+        }
         br = Br;
         for (int j=1; j<=pr->nbBranches; j++) {
             nodes[j]->B = B[j];
@@ -1734,17 +1805,16 @@ bool without_constraint_active_set_lambda_multirates(double br,Pr* &pr,Node** &n
     }
     delete[] B;
     delete[] V;
-    return consistent;
+    return val;
 }
 
-bool with_constraint_active_set_lambda_multirates(double br,Pr* &pr,Node** &nodes,bool reassign){
+bool with_constraint_active_set_lambda_multirates(bool all,double br,Pr* &pr,Node** &nodes,bool reassign){
     vector<int>::iterator iter=nodes[0]->suc.begin();
     int r=(*iter);//r=r1
     iter++;
     int p_r=(*iter);//pr=r2
     double* B = new double[pr->nbBranches+1];
     double* V = new double[pr->nbBranches+1];
-    double Br = br;
     for (int i=1; i<=pr->nbBranches; i++) {
         B[i] = nodes[i]->B;
         V[i] = nodes[i]->V;
@@ -1763,7 +1833,8 @@ bool with_constraint_active_set_lambda_multirates(double br,Pr* &pr,Node** &node
         }
         br = br/pr->multiplierRate[nodes[r]->rateGroup];
     }
-    bool consistent = with_constraint_active_set_lambda(br,pr,nodes);
+    bool val = with_constraint_active_set_lambda(all,br,pr,nodes);
+    if (!val) return false;
     if (pr->ratePartition.size()>0) {
         double* B = new double[pr->nbBranches+1];
         double* V = new double[pr->nbBranches+1];
@@ -1800,13 +1871,19 @@ bool with_constraint_active_set_lambda_multirates(double br,Pr* &pr,Node** &node
                 nodes[j]->B = B[j]/m;
                 nodes[j]->V = V[j]/m/m;
             }
-            consistent = with_constraint_active_set_lambda(br,pr,nodes);
+            val = with_constraint_active_set_lambda(false,br,pr,nodes);
             cont = abs((old_rho-pr->rho)/pr->rho) >= 1e-5;
             for (int j=1; j<=pr->ratePartition.size(); j++) {
                 cont = cont || (abs((old_multi[j]*old_rho-pr->multiplierRate[j]*pr->rho)/pr->multiplierRate[j]/pr->rho)>=1e-5);
             }
             i++;
         } while (cont);
+        if (!pr->haveUnique && (!pr->haveLower || pr->haveUpper)){
+          val = with_constraint_active_set_lambda(br,pr,nodes,1);
+          if (val){
+            pr->rhoUpper = pr->rho;
+          }
+        }
         br = Br;
         for (int j=1; j<=pr->nbBranches; j++) {
             nodes[j]->B = B[j];
@@ -1815,10 +1892,10 @@ bool with_constraint_active_set_lambda_multirates(double br,Pr* &pr,Node** &node
     }
     delete[] B;
     delete[] V;
-    return consistent;
+    return val;
 }
 
-void imposeMinBlen(ostream& file,Pr* pr, Node** nodes,double minB){
+void imposeMinBlen(ostream& file,Pr* pr, Node** nodes,double minB, bool verbose){
   double minblen = pr->minblen;
   double round_time = pr->round_time;
   if (pr->minblen < 0){
@@ -1833,7 +1910,7 @@ void imposeMinBlen(ostream& file,Pr* pr, Node** nodes,double minB){
         br=nodes[s1]->B+nodes[s2]->B;
         nodes[s1]->V=variance(pr,br);
         nodes[s2]->V=nodes[s1]->V;
-        without_constraint_active_set_lambda_multirates(br,pr,nodes,true);
+        without_constraint_active_set_lambda_multirates(true,br,pr,nodes,true);
       } else {
         int r=0;
         if (pr->estimate_root.compare("l")==0){
@@ -1849,25 +1926,34 @@ void imposeMinBlen(ostream& file,Pr* pr, Node** nodes,double minB){
           nodes_new[i]->status=nodes[i]->status;
         }
         reroot_rootedtree(br,r,s1,s2,pr,nodes,nodes_new);
-        without_constraint_active_set_lambda_multirates(br,pr,nodes_new,true);
+        without_constraint_active_set_lambda_multirates(true,br,pr,nodes_new,true);
         for (int i=0;i<pr->nbBranches+1;i++) delete nodes_new[i];
         delete[] nodes_new;
       }
-      minblen = minB/pr->rho;
+      if (pr->rhoLower != pr->rhoUpper){
+        ostringstream oss;
+        oss<<"- Cannot estimate minimum branch length, set minimum branch length to 0.\n";
+        pr->warningMessage.push_back(oss.str());
+        minblen = 0;
+      } else{
+        minblen = minB/pr->rho;
+      }
     }
   }
   double minblenL = minblen;
   if (minblen == 0 || pr->minblen > 0 || (pr->inDateFile=="" && pr->inDateFormat!=2 && pr->round_time==-1)){//do not round
     if (pr->minblenL < 0) minblenL = minblen;
     else minblenL = pr->minblen;
-    if (minblen == minblenL){
-      cout<<"Minimum branch length of time scaled tree (settable via option -u and -U): "<<minblen<<endl;
-      file<<"Minimum branch length of time scaled tree (settable via option -u and -U): "<<minblen<<"\n";
-    } else {
-      cout<<"Minimum internal branches lengths of time scaled tree (settable via option -u): "<<minblen<<endl;
-      cout<<"Minimum external branches lengths of time scaled tree (settable via option -U): "<<minblenL<<endl;
-      file<<"Minimum internal branches lengths of time scaled tree (settable via option -u): "<<minblen<<"\n";
-      file<<"Minimum external branches lengths of time scaled tree (settable via option -U): "<<minblenL<<"\n";
+    if (verbose){
+      if (minblen == minblenL){
+        cout<<"Minimum branch length of time scaled tree (settable via option -u and -U): "<<minblen<<endl;
+        file<<"Minimum branch length of time scaled tree (settable via option -u and -U): "<<minblen<<"\n";
+      } else {
+        cout<<"Minimum internal branches lengths of time scaled tree (settable via option -u): "<<minblen<<endl;
+        cout<<"Minimum external branches lengths of time scaled tree (settable via option -U): "<<minblenL<<endl;
+        file<<"Minimum internal branches lengths of time scaled tree (settable via option -u): "<<minblen<<"\n";
+        file<<"Minimum external branches lengths of time scaled tree (settable via option -U): "<<minblenL<<"\n";
+      }
     }
   } else {//rounding
     if (round_time <0){
@@ -1890,15 +1976,19 @@ void imposeMinBlen(ostream& file,Pr* pr, Node** nodes,double minB){
     if (round_time==52) unit=" weeks";
     double minblenRound = round(round_time*minblen)/(double)round_time;
     if (pr->minblenL < 0){
-      cout<<"Minimum branch length of time scaled tree (settable via option -u and -U): "<<minblen<<",\n rounded to "<<minblenRound<<" ("<<round(round_time*minblen)<<unit<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option -R)"<<endl;
-      file<<"Minimum branch length of time scaled tree (settable via option -u and -U): "<<minblen<<",\n rounded to "<<minblenRound<<" ("<<round(round_time*minblen)<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option -R)\n";
+      if (verbose){
+        cout<<"Minimum branch length of time scaled tree (settable via option -u and -U): "<<minblen<<",\n rounded to "<<minblenRound<<" ("<<round(round_time*minblen)<<unit<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option -R)"<<endl;
+        file<<"Minimum branch length of time scaled tree (settable via option -u and -U): "<<minblen<<",\n rounded to "<<minblenRound<<" ("<<round(round_time*minblen)<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option -R)\n";
+      }
       minblen = minblenRound;
       minblenL = minblenRound;
     } else {
-      cout<<"Minimum internal branches lengths of time scaled tree (settable via option -u):\n "<<minblen<<", rounded to "<<minblenRound<<" ("<<round(round_time*minblen)<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option -R)"<<endl;
-      cout<<"Minimum external branches lengths of time scaled tree was set to "<<pr->minblenL<<"\n (settable via option -U)"<<endl;
-      file<<"Minimum internal branches lengths of time scaled tree (settable via option -u):\n "<<minblen<<", rounded to "<<minblenRound<<" ("<<round(round_time*minblen)<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option -R)\n";
-      file<<"Minimum external branches lengths of time scaled tree was set to "<<pr->minblenL<<"\n (settable via option -U)"<<endl;
+      if (verbose){
+        cout<<"Minimum internal branches lengths of time scaled tree (settable via option -u):\n "<<minblen<<", rounded to "<<minblenRound<<" ("<<round(round_time*minblen)<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option -R)"<<endl;
+        cout<<"Minimum external branches lengths of time scaled tree was set to "<<pr->minblenL<<"\n (settable via option -U)"<<endl;
+        file<<"Minimum internal branches lengths of time scaled tree (settable via option -u):\n "<<minblen<<", rounded to "<<minblenRound<<" ("<<round(round_time*minblen)<<"/"<<round_time<<") using factor "<<round_time<<" (settable via option -R)\n";
+        file<<"Minimum external branches lengths of time scaled tree was set to "<<pr->minblenL<<"\n (settable via option -U)"<<endl;
+      }
       minblen = minblenRound;
       minblenL = pr->minblenL;
     }

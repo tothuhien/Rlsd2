@@ -42,15 +42,16 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
     InputOutputStream *io  = new InputOutputFile(opt,allIsOK);
     if (!allIsOK) return EXIT_FAILURE;
     printInterface(*(io->outResult), opt);
+    int e;
     if (io->inOutgroup){
-        extrait_outgroup(io, opt, false);
+        e = extrait_outgroup(io, opt, false);
+        if (e==EXIT_FAILURE) return e;
     }
-    *(io->outTree1)<<"#NEXUS\n";
+    //*(io->outTree1)<<"#NEXUS\n";
     *(io->outTree2)<<"#NEXUS\n";
     bool constraintConsistent=true;
     int s=0;
     double median_rate = opt->rho_min;
-    int e;
     if (opt->partitionFile!="") {
         e = readPartitionFile(*(io->inPartition), opt);
         if (e==EXIT_FAILURE) return e;
@@ -75,20 +76,49 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
           opt->warningMessage.push_back(oss.str());
         }
         computeSuc_polytomy(opt,nodes);
-        double minB = nodes[1]->B;
+        double minB = nodes[(!opt->rooted)+1]->B;
         if (opt->minblen < 0){
           for (int i=2; i <= opt->nbBranches; i++){
             if (nodes[i]->B < minB) minB = nodes[i]->B;
           }
         }
-        if (opt->bootstraps_file==""){
-          collapseUnInformativeBranches(opt,nodes);
+        bool diffTopology = false;
+        if (io->inBootstrapTree){
+          streampos pos = (*(io->inBootstrapTree)).tellg();
+          io->inBootstrapTree->seekg(0);
+          int lineNb=getLineNumber(*(io->inBootstrapTree));
+          Pr* pr_bootstrap = new Pr(opt->nbINodes,opt->nbBranches);
+          pr_bootstrap->copy(opt);
+          opt->nbBootstrap = lineNb;
+          for (int k = 0; k< opt->nbBootstrap; k++){
+            int sk;
+            pr_bootstrap->rooted = false;
+            Node** nodes_bootstrap;
+            e = tree2data(*(io->inBootstrapTree),pr_bootstrap,sk,nodes_bootstrap);
+            if (e==EXIT_FAILURE) return e;
+            computeSuc_polytomy(pr_bootstrap,nodes_bootstrap);
+            if ((pr_bootstrap->nbINodes != opt->nbINodes) || (pr_bootstrap->nbBranches != opt->nbBranches) || !checkTopology(opt,nodes,nodes_bootstrap)){
+              diffTopology = true;
+              break;
+            }
+          }
+          (*(io->inBootstrapTree)).clear();
+          (*(io->inBootstrapTree)).seekg(pos);
+        }
+        if (diffTopology || !(io->inBootstrapTree)){
+          if (opt->rooted && opt->estimate_root!="" && opt->estimate_root!="k"){
+            rooted2unrooted(opt, nodes);
+          }
+          collapseUnInformativeBranches(opt,nodes,true);
+          opt->internalConstraints.clear();
+          readInputDate(io, opt,nodes,constraintConsistent);
+          initConstraint(opt, nodes);
         }
         if (!opt->rooted){
-            nodes = unrooted2rooted(opt,nodes);
+            unrooted2rooted(opt,nodes);
         }
         if (y==1){
-            *(io->outTree1)<<"Begin trees;\n";
+            //*(io->outTree1)<<"Begin trees;\n";
             *(io->outTree2)<<"Begin trees;\n";
         }
         if (opt->c == -1){
@@ -110,6 +140,10 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
             string line;
             if( getline(*(io->inRate), line)) {
                 vector<double> all_rates = read_double_from_line(line);
+                if (all_rates.size()==0){
+                  cerr<<"Error from the input rate file, expect a real number"<<endl;
+                  exit(EXIT_FAILURE);
+                }
                 opt->rho = all_rates[0];
                 if (all_rates.size() > 1){
                     int i = 1;
@@ -126,8 +160,10 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                 opt->givenRate[0] = false;
             }
         }
-        if (opt->estimate_root=="" || opt->estimate_root=="k") constraintConsistent = initConstraint(opt, nodes);
-        if (opt->e>0) calculateOutliers(opt,nodes,median_rate);
+        if (opt->estimate_root=="" || opt->estimate_root=="k"){
+          constraintConsistent = initConstraint(opt, nodes);
+        }
+        if (opt->e>0) calculateOutliers(opt,nodes,median_rate,true);
         if (opt->splitExternal) splitExternalBranches(opt,nodes);
         if (!opt->constraint){//LD without constraints
             if (!constraintConsistent){
@@ -138,14 +174,13 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
             if (opt->estimate_root==""){//keep the given root
                 cout<<"Dating without temporal constraints ..."<<endl;
                 without_constraint_multirates(opt,nodes,true);
-                e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree2),*(io->outTree3),r,diffTopology);
                 if (e==EXIT_FAILURE) return e;
                 rho.push_back(opt->rho);
                 mrca.push_back(nodes[0]->D);
             }
             else if (opt->estimate_root=="k"){
                 cout<<"Estimating the root position on the branch defined by given outgroups ..."<<endl;
-                double br=0;
                 vector<int>::iterator iter=nodes[0]->suc.begin();
                 int s1=(*iter);
                 iter++;
@@ -153,8 +188,8 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                 br=nodes[s1]->B+nodes[s2]->B;
                 nodes[s1]->V=variance(opt,br);
                 nodes[s2]->V=nodes[s1]->V;
-                without_constraint_active_set_lambda_multirates(br,opt,nodes,true);
-                e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                without_constraint_active_set_lambda_multirates(true,br,opt,nodes,true);
+                e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree2),*(io->outTree3),r,diffTopology);
                 if (e==EXIT_FAILURE) return e;
                 mrca.push_back(nodes[0]->D);
                 rho.push_back(opt->rho);
@@ -178,8 +213,8 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                         nodes_new[i]->status=nodes[i]->status;
                     }
                     reroot_rootedtree(br,r,s1,s2,opt,nodes,nodes_new);
-                    without_constraint_active_set_lambda_multirates(br,opt,nodes_new,true);
-                    e = output(br,y,io, opt,nodes_new,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                    without_constraint_active_set_lambda_multirates(true,br,opt,nodes_new,true);
+                    e = output(br,y,io, opt,nodes_new,*(io->outResult),*(io->outTree2),*(io->outTree3),r,diffTopology);
                     if (e==EXIT_FAILURE) return e;
                     mrca.push_back(nodes_new[0]->D);
                     rho.push_back(opt->rho);
@@ -189,7 +224,7 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
             }
         }
         else {//QPD with temporal constrains
-            imposeMinBlen(*(io->outResult),opt,nodes,minB);
+            imposeMinBlen(*(io->outResult),opt,nodes,minB,true);
             if (constraintConsistent || (opt->estimate_root!="" && opt->estimate_root!="k")){
                 if (constraintConsistent){
                     if (opt->estimate_root==""){//keep the given root
@@ -198,7 +233,7 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                             constraintConsistent = with_constraint_multirates(opt,nodes,true);
                         }
                         if (constraintConsistent) {
-                            e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                            e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree2),*(io->outTree3),r,diffTopology);
                             if (e==EXIT_FAILURE) return e;
                             mrca.push_back(nodes[0]->D);
                             rho.push_back(opt->rho);
@@ -218,10 +253,10 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                             br=nodes[s1]->B+nodes[s2]->B;
                             nodes[s1]->V=variance(opt,br);
                             nodes[s2]->V=nodes[s1]->V;
-                            constraintConsistent = with_constraint_active_set_lambda_multirates(br,opt,nodes,true);
+                            constraintConsistent = with_constraint_active_set_lambda_multirates(true,br,opt,nodes,true);
                         }
                         if (constraintConsistent) {
-                            e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                            e = output(br,y,io, opt,nodes,*(io->outResult),*(io->outTree2),*(io->outTree3),r,diffTopology);
                             if (e==EXIT_FAILURE) return e;
                             mrca.push_back(nodes[0]->D);
                             rho.push_back(opt->rho);
@@ -252,8 +287,8 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
                             nodes_new[i]->status=nodes[i]->status;
                         }
                         reroot_rootedtree(br,r,s1,s2,opt,nodes,nodes_new);
-                        with_constraint_active_set_lambda_multirates(br,opt,nodes_new,true);
-                        e = output(br,y,io, opt,nodes_new,*(io->outResult),*(io->outTree1),*(io->outTree2),*(io->outTree3),r);
+                        with_constraint_active_set_lambda_multirates(true,br,opt,nodes_new,true);
+                        e = output(br,y,io, opt,nodes_new,*(io->outResult),*(io->outTree2),*(io->outTree3),r,diffTopology);
                         if (e==EXIT_FAILURE) return e;
                         mrca.push_back(nodes_new[0]->D);
                         rho.push_back(opt->rho);
@@ -271,7 +306,7 @@ int lsd2(Pr* &opt,vector<double>& rho,vector<double> &mrca)
         delete[] nodes;
     }
     *(io->outResult)<<"\n*********************************************************\n";
-    *(io->outTree1)<<"End;\n";
+    //*(io->outTree1)<<"End;\n";
     *(io->outTree2)<<"End;\n";
     delete io;
     return EXIT_SUCCESS;
