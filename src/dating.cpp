@@ -118,7 +118,7 @@ bool without_constraint(Pr* pr,Node** nodes){
         }
         if (abs(a) < 1e-10) return false;
         pr->rho = -b/(2*a);
-        if (pr->rho<pr->rho_min) pr->rho=pr->rho_min;
+        if (pr->rho<pr->rho_min || a==0) pr->rho=pr->rho_min;
         delete[] F;
         delete[] G;
     }
@@ -636,7 +636,7 @@ bool with_constraint(Pr* pr,Node** &nodes,list<int> active_set,list<double>& ld)
             }
         }
         pr->rho = -b/(2*a);
-        if (pr->rho < pr->rho_min) pr->rho=pr->rho_min;
+        if (pr->rho < pr->rho_min || a==0) pr->rho=pr->rho_min;
         delete[] F;
         delete[] G;
     }
@@ -963,7 +963,7 @@ void calculateMultiplier(Pr* pr,Node** nodes){
     for (int i=1; i<nbG; i++) {
         if (!pr->givenRate[i]){
             pr->multiplierRate[i] = -B[i]/2/A[i];
-            if (pr->multiplierRate[i]*pr->rho < pr->rho_min){
+            if (pr->multiplierRate[i]*pr->rho < pr->rho_min || A[i]==0){
                 pr->multiplierRate[i] = pr->rho_min/pr->rho;
             }
             if (A[i]==0) {
@@ -1104,7 +1104,6 @@ bool with_constraint_multirates(Pr* pr,Node** nodes,bool reassign){
     }
     bool val = with_constraint_active_set(true,pr,nodes);
     if (!val) return false;
-    if (pr->verbose) cout<<pr->rho<<endl;
     if (pr->ratePartition.size()>0) {
         if (pr->verbose){
           printf("ROUND 0 , objective function %.15e , rate %.15f , other_rates ",pr->objective,pr->rho);
