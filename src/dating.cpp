@@ -390,17 +390,17 @@ bool starting_pointQP(Pr* pr,Node** nodes,list<int> &active_set,int whichStartin
         if (bl[i]){
             for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
                 int s=*iter;
-                if (!bl[s] || (nodes[s]->type == 'l' && (nodes[s]->lower - lowerX[i] < nodes[s]->minblen))){
+                if (!bl[s] || (nodes[s]->type == 'l' && (nodes[s]->lower - lowerX[i] - nodes[s]->minblen) <-1e-14 )){
                     lowerX[s] = lowerX[i] + nodes[s]->minblen;
                     nodes[s]->lower = lowerX[i] + nodes[s]->minblen;
                     bl[s]=true;
                 }
-                else if (nodes[s]->type == 'u' && nodes[s]->upper - lowerX[i] < nodes[s]->minblen){
+                else if (nodes[s]->type == 'u' && (nodes[s]->upper - lowerX[i] - nodes[s]->minblen) <-1e-14){
                     return false;
                 }
                 else if (nodes[s]->type == 'b'){
-                    if (nodes[s]->upper - lowerX[i] >= nodes[s]->minblen){
-                        if (nodes[s]->lower - lowerX[i] < nodes[s]->minblen){
+                    if (nodes[s]->upper - lowerX[i] - nodes[s]->minblen >= 1e-14){
+                      if ((nodes[s]->lower - lowerX[i] - nodes[s]->minblen) <-1e-14 ){
                             lowerX[s] = lowerX[i] + nodes[s]->minblen;
                             nodes[s]->lower = lowerX[i] + nodes[s]->minblen;
                             bl[s]=true;
@@ -410,10 +410,10 @@ bool starting_pointQP(Pr* pr,Node** nodes,list<int> &active_set,int whichStartin
                         return false;
                     }
                 }
-                else if ((nodes[s]->type == 'p') && nodes[s]->D - lowerX[i] < nodes[s]->minblen){
+                else if ((nodes[s]->type == 'p') && (nodes[s]->D - lowerX[i] - nodes[s]->minblen) <-1e-14 ){
                     return false;
                 }
-                if (nodes[s]->D < lowerX[s]){
+                if ((nodes[s]->D - lowerX[s]) <-1e-14 ){
                   nodes[s]->D = lowerX[s];
                 }
             }
@@ -423,7 +423,7 @@ bool starting_pointQP(Pr* pr,Node** nodes,list<int> &active_set,int whichStartin
         if (lower(nodes[i]) || upper(nodes[i])) {
             active_set.push_back(-i);
         }
-        else if (bl[i] && nodes[i]->type != 'p' && nodes[i]->D < lowerX[i]){
+        else if (bl[i] && nodes[i]->type != 'p' && (nodes[i]->D - lowerX[i]) <-1e-14){
             nodes[i]->D = lowerX[i];
             if ((nodes[i]->type=='l' || nodes[i]->type=='b')) {
                 activeLower(nodes[i]);
@@ -437,29 +437,29 @@ bool starting_pointQP(Pr* pr,Node** nodes,list<int> &active_set,int whichStartin
         if (lower(nodes[i]) || upper(nodes[i])) {
             active_set.push_back(-i);
         }
-        else if (bl[i] && nodes[i]->type != 'p' && nodes[i]->D < lowerX[i]){
+        else if (bl[i] && nodes[i]->type != 'p' && (nodes[i]->D - lowerX[i]) <-1e-14 ){
             nodes[i]->D = lowerX[i];
             if ((nodes[i]->type=='l' || nodes[i]->type == 'b')) {
                 activeLower(nodes[i]);
                 active_set.push_back(-i);
             }
         }
-        bool conflictU = ((nodes[i]->type == 'u' || nodes[i]->type == 'b') && nodes[i]->D > nodes[i]->upper);
+        bool conflictU = ((nodes[i]->type == 'u' || nodes[i]->type == 'b') && (nodes[i]->D - nodes[i]->upper) > 1e-14);
         bool conflictTC = false;
         int minI = i;
         double minS = nodes[i]->D;
         for (vector<int>::iterator iter=nodes[i]->suc.begin(); iter!=nodes[i]->suc.end(); iter++) {
             int s=*iter;
-            if (nodes[s]->D - nodes[i]->D < nodes[s]->minblen){
+          if ((nodes[s]->D - nodes[i]->D - nodes[s]->minblen) < -1e-14 ){
                 conflictTC = true;
             }
-            if (nodes[s]->D - nodes[s]->minblen < minS) {
+            if ((nodes[s]->D - nodes[s]->minblen - minS) < -1e-14 ) {
                 minS = nodes[s]->D - nodes[s]->minblen;
                 minI = s;
             }
         }
         if (conflictU || conflictTC){
-            if (((nodes[i]->type == 'u' || nodes[i]->type == 'b') && minS < nodes[i]->upper) || (nodes[i]->type != 'u' && nodes[i]->type != 'b')){
+          if (((nodes[i]->type == 'u' || nodes[i]->type == 'b') && (minS - nodes[i]->upper) < -1e-14 ) || (nodes[i]->type != 'u' && nodes[i]->type != 'b')){
                 if (lower(nodes[i]) || upper(nodes[i])){
                     desactiveLimit(nodes[i]);
                     active_set.remove(-i);
