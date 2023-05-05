@@ -531,7 +531,7 @@ int extrait_outgroup(InputOutputStream *io, Pr* pr, bool useBootstrapTree){
   list<string> outgroups;
   int e = getOutgroup(*(io->inOutgroup), pr->fnOutgroup,outgroups);
   if (e==EXIT_FAILURE) return e;
-  ostringstream w;
+  ostringstream wAll;
   int nbData = pr->nbData;
   if (useBootstrapTree) nbData = pr->nbBootstrap;
   else{
@@ -539,6 +539,7 @@ int extrait_outgroup(InputOutputStream *io, Pr* pr, bool useBootstrapTree){
     else cout<<"Removing outgroups of tree(s) ...\n";
   }
   for (int y=0;y<nbData;y++){
+    ostringstream w;
     Node** nodes;
     pr->rooted = false;
     if (!useBootstrapTree){
@@ -565,7 +566,7 @@ int extrait_outgroup(InputOutputStream *io, Pr* pr, bool useBootstrapTree){
         w << newick(r, r, pr, nodes_new,nbTips);
       }
       else{
-        w << newick(p_r, p_r,pr, nodes_new,nbTips).c_str();
+        w << newick(p_r, p_r,pr, nodes_new,nbTips);
       }
       if ((nbTips+outgroups.size()) != (pr->nbBranches+1 - pr->nbINodes)){
         cerr<<"The outgroups do not form a monophyletic in the tree "<<y+1<<endl;
@@ -584,11 +585,12 @@ int extrait_outgroup(InputOutputStream *io, Pr* pr, bool useBootstrapTree){
     }
     for (int i=0;i<=pr->nbBranches;i++) delete nodes[i];
     delete[] nodes;
+    wAll << w.str();
   }
   if (!useBootstrapTree){
-    io->setTree(w.str());
+    io->setTree(wAll.str());
   } else{
-    io->setBootstrapTree(w.str());
+    io->setBootstrapTree(wAll.str());
   }
   return EXIT_SUCCESS;
 }
